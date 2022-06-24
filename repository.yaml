@@ -1,0 +1,37 @@
+tools:
+- name: helm
+  description: The Kubernetes Package Manager
+  alias: h
+  upstream:
+    github_release:
+      repo: helm/helm
+      package_url: https://get.helm.sh/helm-{version}-linux-amd64.tar.gz
+  extract_command: exec tar -Oxz linux-amd64/helm
+- name: helmfile
+  description: Deploy Kubernetes Helm Charts
+  alias: hf
+  upstream:
+    github_release:
+      repo: roboll/helmfile
+      file: helmfile_linux_amd64
+- name: k9s
+  alias: "9"
+  description: Kubernetes CLI To Manage Your Clusters In Style!
+  upstream:
+    github_release:
+      repo: derailed/k9s
+      file: k9s_Linux_x86_64.tar.gz
+  extract_command: exec tar -Oxz k9s
+- name: kubectl
+  alias: k
+  description: official kubernetes cli client
+  upstream:
+    simple:
+      version_url: https://dl.k8s.io/release/latest.txt
+      package_url: https://dl.k8s.io/release/{version}/bin/linux/amd64/kubectl
+- name: yq
+  description: yq is a portable command-line YAML, JSON and XML processor
+  upstream:
+    github_release:
+      repo: mikefarah/yq
+      file: yq_linux_amd64
