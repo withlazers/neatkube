@@ -23,15 +23,15 @@ impl Upstream for GithubReleaseUpstream {
         format!("https://api.github.com/repos/{}/releases/latest", self.repo)
     }
 
-    fn package_url(&self, version: &str) -> String {
+    fn package_url(&self) -> String {
         match &self.source {
             PackageSource::File(file) => {
                 format!(
                     "https://github.com/{}/releases/download/{}/{}",
-                    self.repo, version, file
+                    self.repo, "{version}", file
                 )
             }
-            PackageSource::PackageUrl(url) => url.replace("{version}", version),
+            PackageSource::PackageUrl(url) => url.to_string(),
         }
     }
 

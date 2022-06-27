@@ -1,44 +1,68 @@
+use std::iter;
+
 use crate::result::Result;
 
 use crate::toolbox::tool::Tool;
 use crate::toolbox::Toolbox;
 
-pub struct ToolCommand {
+pub struct ToolCommand<'a> {
     args: Vec<String>,
+    toolbox: &'a Toolbox,
+    tool_name: String,
 }
 
-impl ToolCommand {
-    pub fn from_arg_matches(matches: &clap::ArgMatches) -> Result<Self> {
-        let args: Vec<String> = matches
-            .get_many::<String>("")
-            .map(|x| x.cloned().collect())
-            .unwrap_or_default();
-        Ok(Self { args })
-    }
-    pub async fn run(self, tool: &str, toolbox: Toolbox) -> Result<()> {
-        let tool = match toolbox.tool(tool).await {
-            Ok(tool) => tool,
-            Err(_) => return self.run_default(tool, toolbox).await,
-        };
-        tool.run(&self.args.iter().map(String::as_str).collect::<Vec<_>>())
-            .await?;
+impl<'a> ToolCommand<'a> {
+    pub async fn run(self) -> Result<()> {
+        let tool = self.toolbox.tool(&self.tool_name)?;
+
+        tool.run(&self.args).await?;
         Ok(())
     }
 
-    async fn run_default(
-        self,
-        tool_name: &str,
-        toolbox: Toolbox,
-    ) -> Result<()> {
-        let tool = if tool_name.starts_with("-") {
-            toolbox.tool("k9s").await?
+    pub fn new(
+        toolbox: &'a Toolbox,
+        subcommand: Option<(&str, &clap::ArgMatches)>,
+    ) -> Result<ToolCommand<'a>> {
+        let default_no_subcommand =
+            toolbox.repository().default_no_subcommand();
+        let default_with_subcommand =
+            toolbox.repository().default_with_subcommand();
+
+        let (subcommand_name, matches) = match subcommand {
+            None => {
+                return Ok(Self {
+                    args: vec![],
+                    tool_name: default_no_subcommand.to_string(),
+                    toolbox,
+                })
+            }
+            Some(sc) => (sc),
+        };
+
+        if toolbox.tool(subcommand_name).is_ok() {
+            return Ok(Self {
+                args: Tool::get_args(matches).map(String::from).collect(),
+                toolbox,
+                tool_name: subcommand_name.to_string(),
+            });
+        }
+
+        let tool_name = if subcommand_name.starts_with("-") {
+            default_no_subcommand
         } else {
-            toolbox.tool("kubectl").await?
-        };
-        let mut args = vec![tool_name];
-        args.extend(self.args.iter().map(String::as_str));
+            default_with_subcommand
+        }
+        .to_string();
 
-        tool.run(&args).await?;
-        Ok(())
+        let args = iter::once(subcommand_name)
+            .chain(Tool::get_args(matches))
+            .map(String::from)
+            .collect();
+
+        Ok(Self {
+            args,
+            toolbox,
+            tool_name,
+        })
     }
 }

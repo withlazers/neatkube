@@ -22,15 +22,13 @@ pub enum Subcommand {
     },
     Install {
         tool: String,
-        #[structopt(short, long, default_value = "latest")]
-        version: VersionRef,
-        #[structopt(short, long, default_value_t)]
+        #[clap(short, long, action)]
         force: bool,
     },
 }
 
 impl ToolboxCommand {
-    pub async fn run(self, toolbox: Toolbox) -> Result<()> {
+    pub async fn run(self, toolbox: &Toolbox) -> Result<()> {
         match &self.subcommand {
             Subcommand::List {
                 description,
@@ -40,17 +38,15 @@ impl ToolboxCommand {
                 tool: Some(tool), ..
             } => self.list_versions(toolbox, tool).await,
             Subcommand::Remote { tool } => self.remote(toolbox, tool).await,
-            Subcommand::Install {
-                tool,
-                version,
-                force,
-            } => self.install(toolbox, tool, version, *force).await,
+            Subcommand::Install { tool, force } => {
+                self.install(toolbox, tool, *force).await
+            }
         }
     }
 
     async fn list(
         &self,
-        toolbox: Toolbox,
+        toolbox: &Toolbox,
         show_description: bool,
     ) -> Result<()> {
         let repository = toolbox.repository();
@@ -67,8 +63,8 @@ impl ToolboxCommand {
         Ok(())
     }
 
-    async fn list_versions(&self, toolbox: Toolbox, tool: &str) -> Result<()> {
-        let tool = toolbox.tool(&tool).await?;
+    async fn list_versions(&self, toolbox: &Toolbox, tool: &str) -> Result<()> {
+        let tool = toolbox.tool(&tool)?;
         let versions = tool.find_local_versions().await?;
         for version in &versions {
             println!("{}", version);
@@ -79,8 +75,8 @@ impl ToolboxCommand {
         Ok(())
     }
 
-    async fn remote(&self, toolbox: Toolbox, tool: &str) -> Result<()> {
-        let tool = toolbox.tool(&tool).await?;
+    async fn remote(&self, toolbox: &Toolbox, tool: &str) -> Result<()> {
+        let tool = toolbox.tool(&tool)?;
 
         println!("{}", tool.find_latest_version().await?);
         Ok(())
@@ -88,15 +84,15 @@ impl ToolboxCommand {
 
     async fn install(
         &self,
-        toolbox: Toolbox,
+        toolbox: &Toolbox,
         tool: &str,
-        version: &VersionRef,
         force: bool,
     ) -> Result<()> {
-        let tool = toolbox.tool(&tool).await?;
+        let tool =
+            toolbox.tool_with_version(&tool, vec![VersionRef::Latest])?;
 
         let name = tool.name().to_string();
-        match tool.install(version, force).await? {
+        match tool.install(force).await? {
             true => println!("Installed: {}", name),
             false => println!("Already installed: {}", name),
         }

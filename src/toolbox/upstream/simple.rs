@@ -15,8 +15,8 @@ impl Upstream for SimpleUpstream {
         self.version_url.clone()
     }
 
-    fn package_url(&self, version: &str) -> String {
-        self.package_url.replace("{version}", &version)
+    fn package_url(&self) -> String {
+        self.package_url.to_string()
     }
 
     fn parse_version_from_response(&self, response: &str) -> Result<String> {

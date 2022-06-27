@@ -1,3 +1,7 @@
+default:
+  with_subcommand: kubectl
+  no_subcommand: k9s
+
 tools:
 - name: helm
   description: The Kubernetes Package Manager
@@ -6,9 +10,11 @@ tools:
     github_release:
       repo: helm/helm
       package_url: https://get.helm.sh/helm-{version}-linux-amd64.tar.gz
-  extract_command: exec tar -Oxz linux-amd64/helm
+  extract_command: tar -Oxz linux-amd64/helm
 - name: helmfile
   description: Deploy Kubernetes Helm Charts
+  dependencies:
+  - helm
   alias: hf
   upstream:
     github_release:
@@ -21,7 +27,7 @@ tools:
     github_release:
       repo: derailed/k9s
       file: k9s_Linux_x86_64.tar.gz
-  extract_command: exec tar -Oxz k9s
+  extract_command: tar -Oxz k9s
 - name: kubectl
   alias: k
   description: official kubernetes cli client
@@ -35,3 +41,39 @@ tools:
     github_release:
       repo: mikefarah/yq
       file: yq_linux_amd64
+- name: kubeseal
+  alias: "sl"
+  description: A Kubernetes controller and tool for one-way encrypted Secrets
+  upstream:
+    github_release:
+      repo: bitnami-labs/sealed-secrets
+      file: kubeseal-{stripped_version}-linux-amd64.tar.gz
+  extract_command: tar -Oxz kubeseal
+- name: istio
+  description: Connect, secure, control, and observe services.
+  upstream:
+    github_release:
+      repo: istio/istio
+      file: istio-{stripped_version}-linux-amd64.tar.gz
+  extract_command: tar -Oxz istio-{stripped_version}/bin/istioctl
+- name: linkerd
+  description: Ultralight, security-first service mesh for Kubernetes.
+  upstream:
+    github_release:
+      repo: linkerd/linkerd2
+      file: linkerd2-cli-{version}-linux-amd64
+- name: minikube
+  description: Run Kubernetes locally
+  alias: mk
+  dependencies:
+  - docker-machine-driver-kvm2
+  upstream:
+    github_release:
+      repo: kubernetes/minikube
+      file: minikube-linux-amd64
+- name: docker-machine-driver-kvm2
+  description: Run Kubernetes locally [kvm driver]
+  upstream:
+    github_release:
+      repo: kubernetes/minikube
+      file: docker-machine-driver-kvm2-amd64
