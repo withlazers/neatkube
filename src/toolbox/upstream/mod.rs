@@ -39,7 +39,7 @@ impl UpstreamDefinition {
 
         url.replace("{version}", version).replace(
             "{stripped_version}",
-            version.strip_prefix("v").unwrap_or(version),
+            version.strip_prefix('v').unwrap_or(version),
         )
     }
 

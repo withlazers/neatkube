@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{dirs::Dirs, download::Downloader, result::Result};
 
-static REPOSITORY: &'static [u8] =
+static REPOSITORY: &[u8] =
     include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/repository.yaml"));
 
 //static REPOSITORY_URL: &'static str = "https://neatkube.withlazers.dev/repository.yaml";
@@ -20,7 +20,7 @@ impl Toolbox {
     pub async fn create() -> Result<Self> {
         Ok(Self {
             repository: serde_yaml::from_slice(REPOSITORY)?,
-            downloader: Downloader::new(),
+            downloader: Downloader::default(),
         })
     }
 
@@ -40,7 +40,7 @@ impl Toolbox {
         Ok(Dirs::data_dir()?.join("exec"))
     }
 
-    pub async fn installed_tools<'a>(&'a self) -> Result<Vec<Tool<'a>>> {
+    pub async fn installed_tools(&self) -> Result<Vec<Tool<'_>>> {
         let mut tools = Vec::new();
         for tool in self.repository.tools() {
             let tool =
@@ -61,8 +61,8 @@ impl Toolbox {
             .tools()
             .iter()
             .find(|t| t.name == name)
-            .map(|t| Tool::new_with_version(t, &self, version_refs))
-            .ok_or(format!("Tool not found: {name}").into())
+            .map(|t| Tool::new_with_version(t, self, version_refs))
+            .ok_or_else(|| format!("Tool not found: {name}").into())
     }
 
     pub fn tool<'a>(&'a self, name: &str) -> Result<Tool<'a>> {

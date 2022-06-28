@@ -5,7 +5,7 @@ use std::{
     ops::{Deref, DerefMut},
     os::unix::prelude::{OsStrExt, PermissionsExt},
     path::PathBuf,
-    process::{ExitStatus, Stdio},
+    process::Stdio,
     str::FromStr,
 };
 
@@ -76,7 +76,7 @@ impl ToolDefinition {
     fn replace(input: &str, version: &str) -> String {
         input.replace("{version}", version).replace(
             "{stripped_version}",
-            version.strip_prefix("v").unwrap_or(version),
+            version.strip_prefix('v').unwrap_or(version),
         )
     }
     pub fn extract_command(&self, version: &str) -> Vec<String> {
@@ -199,7 +199,7 @@ impl<'a> Tool<'a> {
         for dep in self.definition.dependencies.iter() {
             let tool = self
                 .toolbox
-                .tool_with_version(&dep, vec![VersionRef::Local])?;
+                .tool_with_version(dep, vec![VersionRef::Local])?;
             result.push(tool.exec_dir_path().await?);
             result.push(":");
         }
@@ -218,11 +218,10 @@ impl<'a> Tool<'a> {
                 }
                 _ => (name, value),
             })
-            .map(|(name, value)| {
-                let mut res = OsString::from(name);
-                res.push("=");
-                res.push(value);
-                CString::new(res.as_bytes()).unwrap()
+            .map(|(mut var, value)| {
+                var.push("=");
+                var.push(value);
+                CString::new(var.as_bytes()).unwrap()
             })
             .collect();
         Ok(new_env)
@@ -233,7 +232,7 @@ impl<'a> Tool<'a> {
         let bin = self.exec_path().await?;
         let bin = CString::new(bin.to_str().unwrap()).unwrap();
         let exec_args = iter::once(&tool_name)
-            .chain(args.into_iter())
+            .chain(args.iter())
             .map(|s| CString::new(s.as_bytes()).unwrap())
             .collect::<Vec<_>>();
         execve(&bin, &exec_args, &self.get_exec_env().await?)?;
@@ -378,7 +377,7 @@ impl<'a> Tool<'a> {
         Ok(self.exec_path().await?.exists())
     }
 
-    pub fn get_args<'b>(matches: &'b clap::ArgMatches) -> clap::Values<'b> {
+    pub fn get_args(matches: &clap::ArgMatches) -> clap::Values<'_> {
         matches
             .values_of(ARGS_NAME)
             .or_else(|| matches.values_of(""))

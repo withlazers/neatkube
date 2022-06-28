@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use super::Upstream;
-use crate::{error::Error, result::Result};
+use crate::result::Result;
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -37,10 +37,10 @@ impl Upstream for GithubReleaseUpstream {
 
     fn parse_version_from_response(&self, response: &str) -> Result<String> {
         let json: serde_yaml::Value = serde_yaml::from_str(response)
-            .or(Err(response.trim().to_string()))?;
+            .map_err(|_| response.trim().to_string())?;
         let tag_name = json["tag_name"]
             .as_str()
-            .ok_or::<Error>("Malformed response".into())?;
+            .ok_or_else(|| "Malformed response".to_string())?;
         Ok(tag_name.to_string())
     }
 }

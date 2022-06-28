@@ -19,12 +19,15 @@ macro_rules! w {
 
 /// Generate zsh completion file
 pub struct Zsh<'a> {
-    toolbox: &'a Toolbox,
+    phantom: std::marker::PhantomData<&'a ()>,
+    //toolbox: &'a Toolbox,
 }
 
 impl<'a> Zsh<'a> {
-    pub fn new(toolbox: &'a Toolbox) -> Self {
-        Self { toolbox }
+    pub fn new(_toolbox: &'a Toolbox) -> Self {
+        Self {
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 

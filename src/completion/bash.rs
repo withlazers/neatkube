@@ -18,12 +18,15 @@ macro_rules! w {
 
 /// Generate bash completion file
 pub struct Bash<'a> {
-    toolbox: &'a Toolbox,
+    phantom: std::marker::PhantomData<&'a ()>,
+    //toolbox: &'a Toolbox,
 }
 
 impl<'a> Bash<'a> {
-    pub fn new(toolbox: &'a Toolbox) -> Bash {
-        Self { toolbox }
+    pub fn new(_toolbox: &'a Toolbox) -> Bash {
+        Self {
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 

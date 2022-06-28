@@ -47,7 +47,7 @@ impl<'a> ToolCommand<'a> {
             });
         }
 
-        let tool_name = if subcommand_name.starts_with("-") {
+        let tool_name = if subcommand_name.starts_with('-') {
             default_no_subcommand
         } else {
             default_with_subcommand

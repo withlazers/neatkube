@@ -13,6 +13,6 @@ impl Dirs {
     }
     fn dirs() -> Result<directories::ProjectDirs> {
         directories::ProjectDirs::from("dev", "withlazers", "neatkube")
-            .ok_or("Failed to get project dirs".into())
+            .ok_or_else(|| "Failed to get project dirs".into())
     }
 }

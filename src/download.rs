@@ -21,8 +21,8 @@ impl Drop for Downloader {
     }
 }
 
-impl Downloader {
-    pub fn new() -> Self {
+impl Default for Downloader {
+    fn default() -> Self {
         // Reqwest setup
         let progress = MultiProgress::new();
         let client = Client::builder()
@@ -35,7 +35,9 @@ impl Downloader {
             .unwrap();
         Self { client, progress }
     }
+}
 
+impl Downloader {
     async fn download_to_raw(
         &self,
         stream: DownloadStream,
@@ -83,7 +85,7 @@ impl Downloader {
             .get(url)
             .send()
             .await
-            .or(Err(format!("Failed to GET from '{}'", &url)))?;
+            .map_err(|_| format!("Failed to GET from '{}'", &url))?;
         let total_size = res.content_length().unwrap_or(0);
 
         // Indicatif setup
@@ -96,8 +98,8 @@ impl Downloader {
 
         // download chunks
         let stream = res.bytes_stream().map(move |chunk| {
-            let chunk =
-                chunk.or(Err(format!("Error while downloading file")))?;
+            let chunk = chunk
+                .map_err(|_| "Error while downloading file".to_string())?;
             pb.inc(chunk.len() as u64);
             Ok(chunk)
         });

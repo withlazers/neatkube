@@ -64,7 +64,7 @@ impl ToolboxCommand {
     }
 
     async fn list_versions(&self, toolbox: &Toolbox, tool: &str) -> Result<()> {
-        let tool = toolbox.tool(&tool)?;
+        let tool = toolbox.tool(tool)?;
         let versions = tool.find_local_versions().await?;
         for version in &versions {
             println!("{}", version);
@@ -76,7 +76,7 @@ impl ToolboxCommand {
     }
 
     async fn remote(&self, toolbox: &Toolbox, tool: &str) -> Result<()> {
-        let tool = toolbox.tool(&tool)?;
+        let tool = toolbox.tool(tool)?;
 
         println!("{}", tool.find_latest_version().await?);
         Ok(())
@@ -88,8 +88,7 @@ impl ToolboxCommand {
         tool: &str,
         force: bool,
     ) -> Result<()> {
-        let tool =
-            toolbox.tool_with_version(&tool, vec![VersionRef::Latest])?;
+        let tool = toolbox.tool_with_version(tool, vec![VersionRef::Latest])?;
 
         let name = tool.name().to_string();
         match tool.install(force).await? {
