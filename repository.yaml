@@ -77,3 +77,10 @@ tools:
     github_release:
       repo: kubernetes/minikube
       file: docker-machine-driver-kvm2-amd64
+- name: stern
+  description: Multi pod and container log tailing for Kubernetes
+  upstream:
+    github_release:
+      repo: stern/stern
+      file: stern_{stripped_version}_linux_amd64.tar.gz
+  extract_command: tar -Oxz stern
