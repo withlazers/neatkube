@@ -69,7 +69,7 @@ pub struct ToolDefinition {
     pub description: String,
     #[serde(default)]
     pub dependencies: Vec<String>,
-    pub alias: Option<String>,
+    pub aliases: Vec<String>,
 }
 
 impl ToolDefinition {
@@ -118,7 +118,6 @@ impl<'a> Tool<'a> {
         let mut guard = self.version.lock().await;
         let version_refs = guard.deref();
 
-        //println!("Resolving version for {}: {:?}", self.name(), version_refs);
         let mut result = Err("No version found".into());
         for version_ref in version_refs {
             let version = match version_ref {
@@ -386,18 +385,19 @@ impl<'a> Tool<'a> {
 
     pub fn subcommand(&self) -> clap::Command<'a> {
         let command = clap::Command::new(self.name())
-            .bin_name(self.name())
-            .allow_hyphen_values(true)
             .disable_help_flag(true)
             .disable_help_subcommand(true)
+            .allow_hyphen_values(true)
             .arg(Arg::with_name(ARGS_NAME).multiple(true))
+            .aliases(
+                &self
+                    .definition
+                    .aliases
+                    .iter()
+                    .map(|x| x.as_str())
+                    .collect::<Vec<_>>(),
+            )
             .about(&*self.definition.description);
-
-        let command = if let Some(alias) = &self.definition.alias {
-            command.alias(&**alias)
-        } else {
-            command
-        };
 
         command
     }

@@ -5,7 +5,8 @@ default:
 tools:
 - name: helm
   description: The Kubernetes Package Manager
-  alias: h
+  aliases:
+  - h
   upstream:
     github_release:
       repo: helm/helm
@@ -15,13 +16,15 @@ tools:
   description: Deploy Kubernetes Helm Charts
   dependencies:
   - helm
-  alias: hf
+  aliases:
+  - hf
   upstream:
     github_release:
       repo: roboll/helmfile
       file: helmfile_linux_amd64
 - name: k9s
-  alias: "9"
+  aliases:
+  - "9"
   description: Kubernetes CLI To Manage Your Clusters In Style!
   upstream:
     github_release:
@@ -29,7 +32,8 @@ tools:
       file: k9s_Linux_x86_64.tar.gz
   extract_command: tar -Oxz k9s
 - name: kubectl
-  alias: k
+  aliases:
+  - k
   description: official kubernetes cli client
   upstream:
     simple:
@@ -42,7 +46,8 @@ tools:
       repo: mikefarah/yq
       file: yq_linux_amd64
 - name: kubeseal
-  alias: "sl"
+  aliases:
+  - "sl"
   description: A Kubernetes controller and tool for one-way encrypted Secrets
   upstream:
     github_release:
@@ -64,7 +69,8 @@ tools:
       file: linkerd2-cli-{version}-linux-amd64
 - name: minikube
   description: Run Kubernetes locally
-  alias: mk
+  aliases:
+  - mk
   dependencies:
   - docker-machine-driver-kvm2
   upstream:
