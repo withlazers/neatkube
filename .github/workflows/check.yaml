@@ -1,0 +1,24 @@
+name: Check
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  check:
+    runs-on: 'ubuntu-20.04'
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # Checkout as many commits as needed for the diff
+        fetch-depth: 2
+
+    # Cargo Checks
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - uses: actions-rs/cargo@v1
+      with:
+        command: check
+        args: >
+          --verbose
