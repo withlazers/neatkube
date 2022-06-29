@@ -22,7 +22,7 @@ use futures::{StreamExt, TryStreamExt};
     about = "drops you to a temporary shell on a cluster"
 )]
 pub struct ShellCommand {
-    #[clap(short, long, default_value = "alpine")]
+    #[clap(short, long, default_value = concat!("withlazers/", env!("CARGO_PKG_NAME"), ":v", env!("CARGO_PKG_VERSION")))]
     image: String,
 
     #[clap(short, long, default_value = "default", env = "NAMESPACE")]
@@ -31,13 +31,16 @@ pub struct ShellCommand {
     #[clap(short, long, action, help = "make container privileged")]
     privileged: bool,
 
-    #[clap(short, long = "secret", action, value_parser = secret_ref_parser, name = "SECRET[:PATH]")]
+    #[clap(short = 'a', long, name = "ACCOUNT]")]
+    service_account: Option<String>,
+
+    #[clap(short, long = "secret", value_parser = secret_ref_parser, name = "SECRET[:PATH]")]
     secrets: Vec<(String, String, String)>,
 
-    #[clap(short = 'H', long, action, value_parser = host_dir_parser, name = "HPATH[:PATH]")]
+    #[clap(short = 'H', long, value_parser = host_dir_parser, name = "HPATH[:PATH]")]
     hostdir: Option<(String, String, String)>,
 
-    #[clap(short, long, action, value_parser = configmap_ref_parser, name = "CMAP[:PATH]")]
+    #[clap(short, long, value_parser = configmap_ref_parser, name = "CMAP[:PATH]")]
     config_maps: Vec<(String, String, String)>,
 
     #[clap(default_value = "/bin/sh")]
@@ -156,6 +159,7 @@ impl ShellCommand {
                 ..Default::default()
             },
             spec: PodSpec {
+                service_account_name: self.service_account,
                 containers: vec![Container {
                     name: env!("CARGO_PKG_NAME").to_string(),
                     image: self.image.clone().into(),
