@@ -24,7 +24,7 @@ Neatkube by default calls k9s if there are no arguments present.
 You may even define options that will be passed to k9s:
 
 ```
-k9s -n kube-system
+nk -n kube-system
 ```
 
 #### call kubectl to get all pods of a cluster
