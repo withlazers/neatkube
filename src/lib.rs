@@ -6,6 +6,10 @@ pub mod error;
 pub mod result;
 pub mod toolbox;
 
+use std::env;
+use std::ffi::OsStr;
+use std::path::Path;
+
 use clap::Command;
 use clap::FromArgMatches;
 use clap::IntoApp;
@@ -16,10 +20,21 @@ use cmd::tool::ToolCommand;
 use cmd::toolbox::ToolboxCommand;
 use toolbox::Toolbox;
 
-pub struct Opt;
-
 pub async fn run() -> Result<(), error::Error> {
     let toolbox = Toolbox::create().await?;
+
+    let mut args = env::args();
+    let arg0_tool = args
+        .next()
+        .as_ref()
+        .map(Path::new)
+        .and_then(Path::file_name)
+        .and_then(OsStr::to_str)
+        .and_then(|x| toolbox.tool(x).ok());
+
+    if let Some(tool) = arg0_tool {
+        tool.run(args).await?;
+    }
 
     let command = Command::new(env!("CARGO_PKG_NAME"))
         .bin_name("nk")

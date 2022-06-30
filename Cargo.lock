@@ -807,6 +807,7 @@ dependencies = [
  "kube-client",
  "log",
  "nix",
+ "os_str_bytes",
  "random-string",
  "reqwest",
  "secrecy",

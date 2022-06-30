@@ -1,6 +1,6 @@
 use std::{
     env,
-    ffi::{CString, OsString},
+    ffi::{CString, OsStr, OsString},
     iter,
     ops::{Deref, DerefMut},
     os::unix::prelude::{OsStrExt, PermissionsExt},
@@ -14,6 +14,7 @@ use crate::error::Error;
 use crate::result::Result;
 use clap::Arg;
 use nix::unistd::execve;
+use os_str_bytes::OsStrBytes;
 use serde::Deserialize;
 use tokio::{
     fs, fs::File, io::AsyncReadExt, io::AsyncWriteExt, process::Command,
@@ -69,6 +70,7 @@ pub struct ToolDefinition {
     pub description: String,
     #[serde(default)]
     pub dependencies: Vec<String>,
+    #[serde(default)]
     pub aliases: Vec<String>,
 }
 
@@ -172,7 +174,11 @@ impl<'a> Tool<'a> {
         Ok(all_versions.into_iter().last())
     }
 
-    pub async fn run(&self, args: &[String]) -> Result<()> {
+    pub async fn run<'b, I, S>(&self, args: I) -> Result<()>
+    where
+        S: AsRef<[u8]>,
+        I: IntoIterator<Item = S>,
+    {
         if !self.is_installed().await? {
             self.install(false).await?;
         }
@@ -180,7 +186,27 @@ impl<'a> Tool<'a> {
         self.exec(args).await
     }
 
-    pub async fn command(&self, args: &[String]) -> Result<Command> {
+    async fn exec<'b, I, S>(&self, args: I) -> Result<()>
+    where
+        S: AsRef<[u8]>,
+        I: IntoIterator<Item = S>,
+    {
+        let tool_name = self.name();
+        let bin = self.exec_path().await?;
+        let bin = CString::new(bin.to_raw_bytes()).unwrap();
+        let args = args.into_iter().map(|x| CString::new(x.as_ref()).unwrap());
+        let exec_args = iter::once(CString::new(tool_name).unwrap())
+            .chain(args)
+            .collect::<Vec<_>>();
+        execve(&bin, &exec_args, &self.get_exec_env().await?)?;
+        Ok(())
+    }
+
+    pub async fn spawn<I, S>(&self, args: I) -> Result<Command>
+    where
+        S: AsRef<OsStr>,
+        I: IntoIterator<Item = S>,
+    {
         if !self.is_installed().await? {
             self.install(false).await?;
         }
@@ -224,18 +250,6 @@ impl<'a> Tool<'a> {
             })
             .collect();
         Ok(new_env)
-    }
-
-    pub async fn exec(&self, args: &[String]) -> Result<()> {
-        let tool_name = self.name().to_string();
-        let bin = self.exec_path().await?;
-        let bin = CString::new(bin.to_str().unwrap()).unwrap();
-        let exec_args = iter::once(&tool_name)
-            .chain(args.iter())
-            .map(|s| CString::new(s.as_bytes()).unwrap())
-            .collect::<Vec<_>>();
-        execve(&bin, &exec_args, &self.get_exec_env().await?)?;
-        Ok(())
     }
 
     fn downloader(&self) -> &Downloader {

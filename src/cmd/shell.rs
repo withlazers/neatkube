@@ -9,7 +9,7 @@ use k8s_openapi::api::core::v1::{
 use kube_client::{
     api::{DeleteParams, ListParams, PostParams},
     core::{ObjectMeta, WatchEvent},
-    Api, Client, ResourceExt,
+    Api, Client, Config, ResourceExt,
 };
 use log::info;
 use std::result::Result as StdResult;
@@ -22,98 +22,110 @@ use futures::{StreamExt, TryStreamExt};
     about = "drops you to a temporary shell on a cluster"
 )]
 pub struct ShellCommand {
+    /// container image to start
     #[clap(short, long, default_value = concat!("withlazers/", env!("CARGO_PKG_NAME"), ":v", env!("CARGO_PKG_VERSION")))]
     image: String,
 
-    #[clap(short, long, default_value = "default", env = "NAMESPACE")]
-    namespace: String,
+    /// namespace to use, default is infered
+    #[clap(short, long, env = "NAMESPACE")]
+    namespace: Option<String>,
 
-    #[clap(short, long, action, help = "make container privileged")]
+    /// share network namespace with host
+    #[clap(short = 'N', long, action)]
+    host_network: bool,
+
+    /// share ipc namespace with host
+    #[clap(short = 'I', long, action)]
+    host_ipc: bool,
+
+    /// share pid namespace with host
+    #[clap(short = 'P', long, action)]
+    host_pid: bool,
+
+    /// start container in privileged mode
+    #[clap(short, long, action)]
     privileged: bool,
 
+    /// service account to use
     #[clap(short = 'a', long, name = "ACCOUNT]")]
     service_account: Option<String>,
 
-    #[clap(short, long = "secret", value_parser = secret_ref_parser, name = "SECRET[:PATH]")]
-    secrets: Vec<(String, String, String)>,
+    /// mounts a secret. if no path is given, the secret will be mounted at /secret
+    #[clap(short, long = "secret", value_parser = volume_parser, name = "SECRET[:PATH]")]
+    secrets: Vec<(String, Option<String>)>,
 
-    #[clap(short = 'H', long, value_parser = host_dir_parser, name = "HPATH[:PATH]")]
-    hostdir: Option<(String, String, String)>,
+    /// mounts the host
+    #[clap(short = 'H', long, value_parser = volume_parser, name = "HPATH[:PATH]")]
+    hostdir: Vec<(String, Option<String>)>,
 
-    #[clap(short, long, value_parser = configmap_ref_parser, name = "CMAP[:PATH]")]
-    config_maps: Vec<(String, String, String)>,
+    #[clap(short, long, value_parser = volume_parser, name = "CMAP[:PATH]")]
+    config_maps: Vec<(String, Option<String>)>,
 
     #[clap(default_value = "/bin/sh")]
     args: Vec<String>,
 }
 
-fn host_dir_parser(
+fn volume_parser(
     input: &str,
-) -> StdResult<(String, String, String), Infallible> {
-    let host = "host".to_string();
-    match &input.split_once(':') {
-        Some((host_path, path)) => {
-            Ok((host, host_path.to_string(), path.to_string()))
-        }
-        None => Ok((host, input.to_string(), "/host".to_string())),
-    }
-}
-
-fn configmap_ref_parser(
-    input: &str,
-) -> StdResult<(String, String, String), Infallible> {
-    ref_parser("configmap", input)
-}
-
-fn secret_ref_parser(
-    input: &str,
-) -> StdResult<(String, String, String), Infallible> {
-    ref_parser("secret", input)
-}
-
-fn ref_parser(
-    kind: &'static str,
-    input: &str,
-) -> StdResult<(String, String, String), Infallible> {
-    let (name, path) = match &input.split_once(':') {
-        Some((name, path)) => (*name, path.to_string()),
-        None => (input, format!("/{}/{}", kind, input)),
+) -> StdResult<(String, Option<String>), Infallible> {
+    let volume = match &input.split_once(':') {
+        Some((name, path)) => (name.to_string(), path.to_string().into()),
+        None => (input.to_string(), None),
     };
-
-    let volume_name = format!("{}-{}", kind, name);
-    Ok((volume_name, name.to_string(), path))
+    Ok(volume)
 }
 
 impl ShellCommand {
+    fn gen_volumes(
+        kind: &'static str,
+        volumes: &[(String, Option<String>)],
+    ) -> Vec<(String, String, String)> {
+        volumes
+            .iter()
+            .enumerate()
+            .map(move |(i, (name, path))| {
+                (
+                    format!("{}-{}", kind, i),
+                    name.clone(),
+                    path.clone().unwrap_or_else(|| format!("/{kind}/{name}")),
+                )
+            })
+            .collect()
+    }
     pub async fn run(self, toolbox: &Toolbox) -> Result<()> {
-        let client = Client::try_default().await?;
-        let namespace = self.namespace;
+        let config = Config::infer().await?;
+        let client = Client::try_from(config.clone())?;
+        let namespace = self.namespace.unwrap_or(config.default_namespace);
         let pod_name = format!(
             "{}-shell-{}",
             env!("CARGO_PKG_NAME"),
             random_string::generate(6, "abcdefghijklmnopqrstuvwxyz1234567890")
         );
+        let container_name = env!("CARGO_PKG_NAME");
 
-        let command = ["/bin/sleep", "infinity"]
+        let command: Vec<_> = ["/bin/sleep", "infinity"]
             .into_iter()
             .map(String::from)
-            .collect::<Vec<_>>();
+            .collect();
 
-        let secret_volumes =
-            self.secrets.iter().map(|(volume_name, name, _)| Volume {
-                name: volume_name.clone(),
-                secret: SecretVolumeSource {
-                    secret_name: name.clone().into(),
+        let secrets = Self::gen_volumes("secret", &self.secrets);
+        let config_maps = Self::gen_volumes("configmap", &self.config_maps);
+        let host_dirs = Self::gen_volumes("host", &self.hostdir);
+
+        let volumes: Vec<_> = iter::empty()
+            .chain(secrets.iter().map(|(volume_name, name, _)| {
+                Volume {
+                    name: volume_name.clone(),
+                    secret: SecretVolumeSource {
+                        secret_name: name.clone().into(),
+                        ..Default::default()
+                    }
+                    .into(),
                     ..Default::default()
                 }
-                .into(),
-                ..Default::default()
-            });
-
-        let config_map_volumes =
-            self.config_maps
-                .iter()
-                .map(|(volume_name, name, _)| Volume {
+            }))
+            .chain(config_maps.iter().map(|(volume_name, name, _)| {
+                Volume {
                     name: volume_name.clone(),
                     config_map: ConfigMapVolumeSource {
                         name: name.clone().into(),
@@ -121,12 +133,10 @@ impl ShellCommand {
                     }
                     .into(),
                     ..Default::default()
-                });
-
-        let host_dir_volumes =
-            self.hostdir
-                .iter()
-                .map(|(volumen_name, host_path, _)| Volume {
+                }
+            }))
+            .chain(host_dirs.iter().map(|(volumen_name, host_path, _)| {
+                Volume {
                     name: volumen_name.clone(),
                     host_path: HostPathVolumeSource {
                         path: host_path.clone(),
@@ -134,24 +144,20 @@ impl ShellCommand {
                     }
                     .into(),
                     ..Default::default()
-                });
+                }
+            }))
+            .collect();
 
-        let volumes = iter::empty()
-            .chain(secret_volumes)
-            .chain(config_map_volumes)
-            .chain(host_dir_volumes)
-            .collect::<Vec<_>>();
-
-        let volume_mounts = iter::empty()
-            .chain(self.config_maps.iter())
-            .chain(self.secrets.iter())
-            .chain(self.hostdir.iter())
+        let volume_mounts: Vec<_> = iter::empty()
+            .chain(secrets)
+            .chain(config_maps)
+            .chain(host_dirs)
             .map(|(volume_name, _, path)| VolumeMount {
-                name: volume_name.clone(),
-                mount_path: path.clone(),
+                name: volume_name,
+                mount_path: path,
                 ..Default::default()
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let pod = Pod {
             metadata: ObjectMeta {
@@ -160,8 +166,11 @@ impl ShellCommand {
             },
             spec: PodSpec {
                 service_account_name: self.service_account,
+                host_ipc: self.host_ipc.into(),
+                host_network: self.host_network.into(),
+                host_pid: self.host_pid.into(),
                 containers: vec![Container {
-                    name: env!("CARGO_PKG_NAME").to_string(),
+                    name: container_name.to_string(),
                     image: self.image.clone().into(),
                     command: command.into(),
                     security_context: SecurityContext {
@@ -180,10 +189,8 @@ impl ShellCommand {
         };
 
         let pods: Api<Pod> = Api::namespaced(client, &namespace);
-        // Stop on error including a pod already exists or is still being deleted.
         pods.create(&PostParams::default(), &pod).await?;
 
-        // Wait until the pod is running, otherwise we get 500 error.
         let lp = ListParams::default()
             .fields(&format!("metadata.name={}", pod.name()));
         let mut stream = pods.watch(&lp, "0").await?.boxed();
@@ -204,22 +211,18 @@ impl ShellCommand {
         }
 
         let kubectl = toolbox.tool("kubectl")?;
-        let args: Vec<_> = [
+        let args = [
             "exec",
             "-it",
             "-c",
-            env!("CARGO_PKG_NAME"),
+            container_name,
             "--namespace",
             &namespace,
             &pod_name,
             "--",
-        ]
-        .into_iter()
-        .map(String::from)
-        .chain(self.args.into_iter())
-        .collect();
+        ];
 
-        kubectl.command(&args).await?.spawn()?.wait().await?;
+        kubectl.spawn(args).await?.spawn()?.wait().await?;
 
         // Delete it
         pods.delete(&pod.name(), &DeleteParams::default())

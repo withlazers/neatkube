@@ -33,3 +33,4 @@ log = "0.4.17"
 futures = "0.3.21"
 indicatif = "0.16.2"
 random-string = "1.0.0"
+os_str_bytes = { version = "6.1.0", default-features = false, features = ["raw_os_str"] }

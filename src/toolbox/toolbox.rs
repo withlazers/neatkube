@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{
     repository::Repository,
-    tool::{Tool, VersionRef},
+    tool::{Tool, ToolDefinition, VersionRef},
 };
 use crate::{dirs::Dirs, download::Downloader, result::Result};
 
@@ -40,13 +40,16 @@ impl Toolbox {
         Ok(Dirs::data_dir()?.join("exec"))
     }
 
-    pub async fn installed_tools(&self) -> Result<Vec<Tool<'_>>> {
+    pub async fn installed_tools(&self) -> Result<Vec<&ToolDefinition>> {
         let mut tools = Vec::new();
-        for tool in self.repository.tools() {
-            let tool =
-                Tool::new_with_version(tool, self, vec![VersionRef::Local]);
+        for tool_definition in self.repository.tools() {
+            let tool = Tool::new_with_version(
+                tool_definition,
+                self,
+                vec![VersionRef::Local],
+            );
             if tool.is_installed().await? {
-                tools.push(tool);
+                tools.push(tool_definition);
             }
         }
         Ok(tools)
@@ -78,6 +81,7 @@ impl Toolbox {
     ) -> Result<clap::Command<'a>> {
         let mut command = command;
         for tool in self.installed_tools().await? {
+            let tool = Tool::new(tool, self);
             command = command.subcommand(tool.subcommand());
         }
 

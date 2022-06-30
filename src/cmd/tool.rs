@@ -15,7 +15,7 @@ impl<'a> ToolCommand<'a> {
     pub async fn run(self) -> Result<()> {
         let tool = self.toolbox.tool(&self.tool_name)?;
 
-        tool.run(&self.args).await?;
+        tool.run(self.args).await?;
         Ok(())
     }
 
