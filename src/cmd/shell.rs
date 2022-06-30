@@ -220,7 +220,10 @@ impl ShellCommand {
             &namespace,
             &pod_name,
             "--",
-        ];
+        ]
+        .into_iter()
+        .map(String::from)
+        .chain(self.args.into_iter());
 
         kubectl.spawn(args).await?.spawn()?.wait().await?;
 
