@@ -20,7 +20,6 @@ COPY --from=build /app/bin/nk /usr/local/bin/nk
 ENV NK_DATA_DIR=/nk
 
 RUN mkdir /nk && \
-	cd  && \
 	for i in $(nk toolbox list); do \
 		ln -sv nk "/usr/local/bin/$i" || exit 1; \
 	done

@@ -228,6 +228,8 @@ impl<'a> Tool<'a> {
             result.push(tool.exec_dir_path().await?);
             result.push(":");
         }
+        result.push(self.toolbox.exec_dir_path()?);
+        result.push(":");
         Ok(result)
     }
 
