@@ -30,6 +30,10 @@ pub struct ShellCommand {
     #[clap(short, long, env = "NAMESPACE")]
     namespace: Option<String>,
 
+    /// node to run on
+    #[clap(short = 'm', long)]
+    node: Option<String>,
+
     /// share network namespace with host
     #[clap(short = 'N', long, action)]
     host_network: bool,
@@ -159,6 +163,10 @@ impl ShellCommand {
             })
             .collect();
 
+        let node_selector = self
+            .node
+            .map(|node| [("kubernetes.io/hostname".to_string(), node)].into());
+
         let pod = Pod {
             metadata: ObjectMeta {
                 name: pod_name.clone().into(),
@@ -182,6 +190,7 @@ impl ShellCommand {
                     ..Default::default()
                 }],
                 volumes: volumes.into(),
+                node_selector,
                 ..Default::default()
             }
             .into(),
