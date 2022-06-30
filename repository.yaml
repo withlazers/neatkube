@@ -26,6 +26,8 @@ tools:
   aliases:
   - "9"
   description: Kubernetes CLI To Manage Your Clusters In Style!
+  dependencies:
+  - kubectl
   upstream:
     github_release:
       repo: derailed/k9s
