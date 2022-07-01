@@ -202,7 +202,7 @@ impl<'a> Tool<'a> {
         Ok(())
     }
 
-    pub async fn spawn<I, S>(&self, args: I) -> Result<Command>
+    pub async fn command<I, S>(&self, args: I) -> Result<Command>
     where
         S: AsRef<OsStr>,
         I: IntoIterator<Item = S>,

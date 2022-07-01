@@ -1,6 +1,10 @@
-use std::{convert::Infallible, iter};
+use std::{convert::Infallible, iter, process::Stdio};
 
-use crate::{result::Result, toolbox::Toolbox};
+use crate::{
+    error::TError,
+    result::Result,
+    toolbox::{tool::Tool, Toolbox},
+};
 use clap::StructOpt;
 use k8s_openapi::api::core::v1::{
     ConfigMapVolumeSource, Container, HostPathVolumeSource, Pod, PodSpec,
@@ -13,6 +17,7 @@ use kube_client::{
 };
 use log::info;
 use std::result::Result as StdResult;
+use tokio::{io, process::Command};
 
 use futures::{StreamExt, TryStreamExt};
 
@@ -65,8 +70,21 @@ pub struct ShellCommand {
     #[clap(short, long, value_parser = volume_parser, name = "CMAP[:PATH]")]
     config_maps: Vec<(String, Option<String>)>,
 
+    #[clap(short, long, value_parser = upload_parser, name = "LOCAL:PATH")]
+    upload: Option<(String, String)>,
+
     #[clap(default_value = "/bin/sh")]
     args: Vec<String>,
+}
+
+fn upload_parser(input: &str) -> StdResult<(String, String), TError> {
+    let (local, path) = volume_parser(input)?;
+    Ok((
+        local,
+        path.ok_or_else(|| {
+            "upload directories must be in the form of LOCAL:PATH".to_string()
+        })?,
+    ))
 }
 
 fn volume_parser(
@@ -99,7 +117,11 @@ impl ShellCommand {
     pub async fn run(self, toolbox: &Toolbox) -> Result<()> {
         let config = Config::infer().await?;
         let client = Client::try_from(config.clone())?;
-        let namespace = self.namespace.unwrap_or(config.default_namespace);
+        let namespace = self
+            .namespace
+            .as_ref()
+            .unwrap_or_else(|| &config.default_namespace)
+            .clone();
         let pod_name = format!(
             "{}-shell-{}",
             env!("CARGO_PKG_NAME"),
@@ -163,9 +185,9 @@ impl ShellCommand {
             })
             .collect();
 
-        let node_selector = self
-            .node
-            .map(|node| [("kubernetes.io/hostname".to_string(), node)].into());
+        let node_selector = self.node.as_ref().map(|node| {
+            [("kubernetes.io/hostname".to_string(), node.clone())].into()
+        });
 
         let pod = Pod {
             metadata: ObjectMeta {
@@ -173,7 +195,7 @@ impl ShellCommand {
                 ..Default::default()
             },
             spec: PodSpec {
-                service_account_name: self.service_account,
+                service_account_name: self.service_account.clone(),
                 host_ipc: self.host_ipc.into(),
                 host_network: self.host_network.into(),
                 host_pid: self.host_pid.into(),
@@ -220,7 +242,7 @@ impl ShellCommand {
         }
 
         let kubectl = toolbox.tool("kubectl")?;
-        let args = [
+        let default_args: Vec<_> = [
             "exec",
             "-it",
             "-c",
@@ -232,9 +254,14 @@ impl ShellCommand {
         ]
         .into_iter()
         .map(String::from)
-        .chain(self.args.into_iter());
+        .collect();
 
-        kubectl.spawn(args).await?.spawn()?.wait().await?;
+        for upload in self.upload.iter() {
+            self.upload(&kubectl, &default_args, upload).await?;
+        }
+
+        let args = default_args.iter().chain(self.args.iter());
+        kubectl.command(args).await?.spawn()?.wait().await?;
 
         // Delete it
         pods.delete(&pod.name(), &DeleteParams::default())
@@ -243,6 +270,59 @@ impl ShellCommand {
                 assert_eq!(pdel.name(), pod.metadata.name.unwrap());
             });
 
+        Ok(())
+    }
+
+    async fn upload(
+        &self,
+        kubectl: &Tool<'_>,
+        args: &[String],
+        upload: &(String, String),
+    ) -> Result<()> {
+        let (local, remote) = upload;
+        let compression = "-z";
+        let receive_args: Vec<_> = [
+            "/bin/sh",
+            "-c",
+            format!(r#"mkdir -p "$1" && exec tar -C "$1" {} -xv"#, compression)
+                .as_str(),
+            "-",
+            remote,
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        // TODO: there must be a more elegant way to do this
+        let kubectl_args = args
+            .into_iter()
+            .cloned()
+            .map(|a| if a == "-it" { "-i".to_string() } else { a })
+            .chain(receive_args);
+        eprintln!("Uploading {} to {}", local, remote);
+        let mut tar_cmd = Command::new("tar")
+            .args(&["-C", local, "-c", compression, "."])
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let mut kubectl_cmd = kubectl
+            .command(kubectl_args)
+            .await?
+            .stdin(Stdio::piped())
+            .spawn()?;
+        io::copy(
+            tar_cmd.stdout.as_mut().unwrap(),
+            kubectl_cmd.stdin.as_mut().unwrap(),
+        )
+        .await?;
+        let (tar_exit, kubectl_exit) =
+            tokio::try_join!(tar_cmd.wait(), kubectl_cmd.wait())?;
+
+        if !tar_exit.success() {
+            Err("tar failed".to_string())?
+        }
+        if !kubectl_exit.success() {
+            Err("kubectl failed".to_string())?
+        }
         Ok(())
     }
 }
