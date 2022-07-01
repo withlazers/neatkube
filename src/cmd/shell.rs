@@ -1,4 +1,4 @@
-use std::{convert::Infallible, iter, process::Stdio};
+use std::{convert::Infallible, iter, path::Path, process::Stdio};
 
 use crate::{
     error::TError,
@@ -300,8 +300,18 @@ impl ShellCommand {
             .map(|a| if a == "-it" { "-i".to_string() } else { a })
             .chain(receive_args);
         eprintln!("Uploading {} to {}", local, remote);
+        let path = Path::new(local);
+        let (dir, file) = if path.is_dir() {
+            (path, ".")
+        } else {
+            (
+                path.parent().unwrap_or(Path::new(".")),
+                path.file_name().unwrap().to_str().unwrap(),
+            )
+        };
+
         let mut tar_cmd = Command::new("tar")
-            .args(&["-C", local, "-c", compression, "."])
+            .args(&["-C", dir.to_str().unwrap(), "-c", compression, file])
             .stdout(Stdio::piped())
             .spawn()?;
         let mut kubectl_cmd = kubectl
