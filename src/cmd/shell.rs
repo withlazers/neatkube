@@ -120,7 +120,7 @@ impl ShellCommand {
         let namespace = self
             .namespace
             .as_ref()
-            .unwrap_or_else(|| &config.default_namespace)
+            .unwrap_or(&config.default_namespace)
             .clone();
         let pod_name = format!(
             "{}-shell-{}",
@@ -295,7 +295,7 @@ impl ShellCommand {
 
         // TODO: there must be a more elegant way to do this
         let kubectl_args = args
-            .into_iter()
+            .iter()
             .cloned()
             .map(|a| if a == "-it" { "-i".to_string() } else { a })
             .chain(receive_args);
