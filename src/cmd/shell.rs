@@ -1,23 +1,26 @@
-use std::{convert::Infallible, iter, process::Stdio};
+use std::{convert::Infallible, ffi::OsStr, iter, path::Path, process::Stdio};
 
 use crate::{
-    error::TError,
+    error::{Error, TError},
     result::Result,
-    toolbox::{tool::Tool, Toolbox},
+    toolbox::Toolbox,
 };
 use clap::StructOpt;
-use k8s_openapi::api::core::v1::{
-    ConfigMapVolumeSource, Container, HostPathVolumeSource, Pod, PodSpec,
-    SecretVolumeSource, SecurityContext, Volume, VolumeMount,
+use k8s_openapi::{
+    api::core::v1::{
+        ConfigMapVolumeSource, Container, HostPathVolumeSource, Pod, PodSpec,
+        SecretVolumeSource, SecurityContext, Volume, VolumeMount,
+    },
+    apimachinery::pkg::apis::meta::v1::Status,
 };
 use kube_client::{
     api::{DeleteParams, ListParams, PostParams},
-    core::{ObjectMeta, WatchEvent},
+    core::{subresource::AttachParams, ObjectMeta, WatchEvent},
     Api, Client, Config, ResourceExt,
 };
 use log::info;
 use std::result::Result as StdResult;
-use tokio::{io, process::Command};
+use tokio::{io, process::Command, try_join};
 
 use futures::{StreamExt, TryStreamExt};
 
@@ -257,7 +260,8 @@ impl ShellCommand {
         .collect();
 
         for upload in self.upload.iter() {
-            self.upload(&kubectl, &default_args, upload).await?;
+            self.upload(&pods, &pod_name, &container_name, upload)
+                .await?;
         }
 
         let args = default_args.iter().chain(self.args.iter());
@@ -275,13 +279,14 @@ impl ShellCommand {
 
     async fn upload(
         &self,
-        kubectl: &Tool<'_>,
-        args: &[String],
+        pods: &Api<Pod>,
+        pod_name: &str,
+        container: &str,
         upload: &(String, String),
     ) -> Result<()> {
         let (local, remote) = upload;
         let compression = "-z";
-        let receive_args: Vec<_> = [
+        let tar_x_cmd: Vec<_> = [
             "/bin/sh",
             "-c",
             format!(r#"mkdir -p "$1" && exec tar -C "$1" {} -xv"#, compression)
@@ -294,35 +299,63 @@ impl ShellCommand {
         .collect();
 
         // TODO: there must be a more elegant way to do this
-        let kubectl_args = args
-            .iter()
-            .cloned()
-            .map(|a| if a == "-it" { "-i".to_string() } else { a })
-            .chain(receive_args);
         eprintln!("Uploading {} to {}", local, remote);
-        let mut tar_cmd = Command::new("tar")
-            .args(&["-C", local, "-c", compression, "."])
+        let path = Path::new(local);
+        let (dir, file) = if path.is_dir() {
+            (path, ".")
+        } else {
+            (
+                path.parent().unwrap_or(Path::new(".")),
+                path.file_name().unwrap().to_str().unwrap(),
+            )
+        };
+        let mut tar_c_cmd = Command::new("tar")
+            .args(&["-C", dir.to_str().unwrap(), "-c", compression, file])
             .stdout(Stdio::piped())
             .spawn()?;
-        let mut kubectl_cmd = kubectl
-            .command(kubectl_args)
-            .await?
-            .stdin(Stdio::piped())
-            .spawn()?;
-        io::copy(
-            tar_cmd.stdout.as_mut().unwrap(),
-            kubectl_cmd.stdin.as_mut().unwrap(),
-        )
-        .await?;
-        let (tar_exit, kubectl_exit) =
-            tokio::try_join!(tar_cmd.wait(), kubectl_cmd.wait())?;
+        let param = AttachParams::default()
+            .stdin(true)
+            .stdout(true)
+            .stderr(true)
+            .container(container);
+        let mut tar_x_cmd = pods.exec(&pod_name, tar_x_cmd, &param).await?;
+        let mut tar_c_stdout = tar_c_cmd.stdout.take().unwrap();
+        let mut tar_x_stdin = tar_x_cmd.stdin().unwrap();
+        let mut tar_x_stderr = tar_x_cmd.stderr().unwrap();
+        let mut tar_x_stdout = tar_x_cmd.stdout().unwrap();
+        let mut stderr = io::stderr();
+        let mut stdout = io::stdout();
+        try_join!(
+            io::copy(&mut tar_c_stdout, &mut tar_x_stdin),
+            io::copy(&mut tar_x_stderr, &mut stderr),
+            io::copy(&mut tar_x_stdout, &mut stdout),
+        )?;
+        let tar_x_status = tar_x_cmd.take_status().unwrap();
+        println!("Uploaded {}", remote);
+        tar_c_cmd.wait().await?;
+        println!("Uploaded {}", remote);
+        tar_x_cmd.join().await?;
+        println!("Uploaded {}", remote);
+        //let (tar_c_exit, _) = tokio::try_join!(
+        //    async { Ok::<_, Error>(tar_c_cmd.wait().await?) },
+        //    async { Ok::<_, Error>(tar_x_cmd.join().await?) }
+        //)?;
 
-        if !tar_exit.success() {
-            Err("tar failed".to_string())?
-        }
-        if !kubectl_exit.success() {
-            Err("kubectl failed".to_string())?
-        }
+        //if !tar_c_exit.success() {
+        //    Err("tar failed".to_string())?
+        //}
         Ok(())
+        //match tar_x_status.await {
+        //    Some(Status {
+        //        status: Some(status),
+        //        reason: Some(reason),
+        //        ..
+        //    }) => match status.as_str() {
+        //        "Failure" => Err(reason)?,
+        //        _ => Ok(()),
+        //    },
+        //    None => Err("No Status returned".to_string())?,
+        //    _ => Ok(()),
+        //}
     }
 }
