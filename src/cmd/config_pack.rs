@@ -1,7 +1,7 @@
 use serde_yaml::Value;
 
 use std::{fmt::{Debug, Display, Formatter}, fs::File, io::Read, path::PathBuf, str::FromStr};
-use structopt::StructOpt;
+use clap::Parser;
 
 #[derive(Debug)]
 struct KubeCfgPath(PathBuf);
@@ -27,11 +27,11 @@ impl Default for KubeCfgPath {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Inlines references in kubeconfig into the config")]
+#[derive(Debug, Parser)]
+#[clap(about = "Inlines references in kubeconfig into the config")]
 pub struct Opt {
     /// KUBECONFIG
-    #[structopt(name = "KUBECONFIG", env = "KUBECONFIG", default_value)]
+    #[clap(name = "KUBECONFIG", env = "KUBECONFIG", default_value)]
     kube_config: KubeCfgPath,
 }
 

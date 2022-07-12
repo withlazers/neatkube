@@ -5,7 +5,7 @@ use crate::{
     result::Result,
     toolbox::{tool::Tool, Toolbox},
 };
-use clap::StructOpt;
+use clap::Parser;
 use k8s_openapi::api::core::v1::{
     ConfigMapVolumeSource, Container, HostPathVolumeSource,
     PersistentVolumeClaimVolumeSource, Pod, PodSpec, SecretVolumeSource,
@@ -22,11 +22,8 @@ use tokio::{io, process::Command};
 
 use futures::{StreamExt, TryStreamExt};
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    name = "shell",
-    about = "drops you to a temporary shell on a cluster"
-)]
+#[derive(Parser, Debug)]
+#[clap(name = "shell", about = "drops you to a temporary shell on a cluster")]
 pub struct ShellCommand {
     /// container image to start
     #[clap(short, long, default_value = concat!("withlazers/", env!("CARGO_PKG_NAME"), ":v", env!("CARGO_PKG_VERSION")))]

@@ -1,17 +1,17 @@
 use std::io::Read;
 
-use clap::StructOpt;
+use clap::Parser;
 use kube_client::config::Kubeconfig;
 use secrecy::Secret;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, Parser)]
+#[clap(
     name = "cfgpack",
     about = "Inlines references in kubeconfig into the config"
 )]
 pub struct CfgPackCommand {
     /// KUBECONFIG
-    #[structopt(name = "KUBECONFIG", env = "KUBECONFIG")]
+    #[clap(name = "KUBECONFIG", env = "KUBECONFIG")]
     kube_config: Option<String>,
 }
 

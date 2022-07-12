@@ -1,18 +1,18 @@
 use crate::result::Result;
 use crate::toolbox::tool::{Tool, VersionRef};
 use crate::toolbox::Toolbox;
-use clap::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "toolbox", about = "manages the toolbox")]
+#[derive(Parser, Debug)]
+#[clap(name = "toolbox", about = "manages the toolbox")]
 pub struct ToolboxCommand {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub subcommand: Subcommand,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct List {
-    #[structopt(short, long)]
+    #[clap(short, long)]
     description: bool,
     tool: Option<String>,
 }
@@ -51,7 +51,7 @@ impl List {
         Ok(())
     }
 }
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Remote {
     tool: String,
 }
@@ -64,7 +64,7 @@ impl Remote {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Install {
     tool: String,
     #[clap(short, long, action)]
@@ -84,7 +84,7 @@ impl Install {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Update {}
 impl Update {
     async fn run(&self, toolbox: &Toolbox) -> Result<()> {
@@ -102,7 +102,7 @@ impl Update {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub enum Subcommand {
     List(List),
     Update(Update),

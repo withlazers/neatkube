@@ -5,11 +5,11 @@ use crate::{
     result::Result,
     toolbox::Toolbox,
 };
-use clap::{Command, StructOpt, ValueEnum};
+use clap::{Command, Parser, ValueEnum};
 use clap_complete::Generator;
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[clap(
     name = "completion",
     about = "Generate autocompletion scripts for a specified shell."
 )]
