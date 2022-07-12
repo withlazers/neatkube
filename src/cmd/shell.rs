@@ -7,8 +7,9 @@ use crate::{
 };
 use clap::StructOpt;
 use k8s_openapi::api::core::v1::{
-    ConfigMapVolumeSource, Container, HostPathVolumeSource, Pod, PodSpec,
-    SecretVolumeSource, SecurityContext, Volume, VolumeMount,
+    ConfigMapVolumeSource, Container, HostPathVolumeSource,
+    PersistentVolumeClaimVolumeSource, Pod, PodSpec, SecretVolumeSource,
+    SecurityContext, Volume, VolumeMount,
 };
 use kube_client::{
     api::{DeleteParams, ListParams, PostParams},
@@ -56,8 +57,12 @@ pub struct ShellCommand {
     privileged: bool,
 
     /// service account to use
-    #[clap(short = 'a', long, name = "ACCOUNT]")]
+    #[clap(short = 'a', long, name = "ACCOUNT")]
     service_account: Option<String>,
+
+    /// mounts a PVC. if no path is given, the secret will be mounted at /pvc
+    #[clap(short = 'v', long = "pvc", value_parser = volume_parser, name = "PVC[:PATH]")]
+    pvcs: Vec<(String, Option<String>)>,
 
     /// mounts a secret. if no path is given, the secret will be mounted at /secret
     #[clap(short, long = "secret", value_parser = volume_parser, name = "SECRET[:PATH]")]
@@ -136,6 +141,7 @@ impl ShellCommand {
 
         let secrets = Self::gen_volumes("secret", &self.secrets);
         let config_maps = Self::gen_volumes("configmap", &self.config_maps);
+        let pvcs = Self::gen_volumes("pvc", &self.pvcs);
         let host_dirs = Self::gen_volumes("host", &self.hostdir);
 
         let volumes: Vec<_> = iter::empty()
@@ -161,6 +167,18 @@ impl ShellCommand {
                     ..Default::default()
                 }
             }))
+            .chain(config_maps.iter().map(|(volume_name, name, _)| {
+                Volume {
+                    name: volume_name.clone(),
+                    persistent_volume_claim:
+                        PersistentVolumeClaimVolumeSource {
+                            claim_name: name.clone(),
+                            ..Default::default()
+                        }
+                        .into(),
+                    ..Default::default()
+                }
+            }))
             .chain(host_dirs.iter().map(|(volumen_name, host_path, _)| {
                 Volume {
                     name: volumen_name.clone(),
@@ -177,6 +195,7 @@ impl ShellCommand {
         let volume_mounts: Vec<_> = iter::empty()
             .chain(secrets)
             .chain(config_maps)
+            .chain(pvcs)
             .chain(host_dirs)
             .map(|(volume_name, _, path)| VolumeMount {
                 name: volume_name,
@@ -305,7 +324,7 @@ impl ShellCommand {
             (path, ".")
         } else {
             (
-                path.parent().unwrap_or(Path::new(".")),
+                path.parent().unwrap_or_else(|| Path::new(".")),
                 path.file_name().unwrap().to_str().unwrap(),
             )
         };
