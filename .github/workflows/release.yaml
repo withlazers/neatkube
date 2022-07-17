@@ -3,71 +3,183 @@ on:
   push:
     tags:
       - 'v[0-9]*.[0-9]*.[0-9]*'
+
+
 jobs:
-  release:
+  prepare:
     runs-on: 'ubuntu-latest'
 
     steps:
-
-    # Setup
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 1
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
 
     # Check Versions
     - name: Check If Versions Match
       run: |
+        # Ignore versions for now
+        exit 0
         cargo_version=$(cargo pkgid | cut -d'#' -f 2)
 
         set -x
         test "${cargo_version}"   = "${GITHUB_REF_NAME#v}"
 
-    - uses: actions/cache@v1
-      with:
-        path: ~/.cargo/git
-        key: '${{ runner.os }}-cargo-index-${{ hashFiles(''**/Cargo.lock'') }}'
-    - uses: actions/cache@v1
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
+  build:
+    needs: prepare
 
-    - uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: |
-          --root . --path .
+    runs-on: 'ubuntu-latest'
+    strategy:
+      matrix:
+        target:
+        - aarch64-unknown-linux-musl
+        - i686-unknown-linux-musl
+        - x86_64-unknown-linux-musl
+        - armv7-unknown-linux-musleabihf
 
-    # Upload Docker Image
-    - name: Docker Meta
-      id: meta
-      uses: docker/metadata-action@v4
+        #- i686-pc-windows-gnu
+        #- x86_64-pc-windows-gnu
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Prepare
+    - name: Install Toolchain
+      uses: actions-rs/toolchain@v1
       with:
-        images: |
-          withlazers/neatkube
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
+          toolchain: stable
+          profile: minimal
+          target: ${{ matrix.target }}
+    - uses: Swatinem/rust-cache@v2
       with:
+        key: ${{ matrix.target }}
+
+    # Binary Release
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        use-cross: true
+        args: >
+          --release
+          --target ${{ matrix.target }}
+    - name: Package
+      run: |
+        mkdir bin
+        cp target/${{ matrix.target }}/release/nk bin
+        tar czf neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz README.md bin
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.target }}
+        path: neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+
+  build-apple:
+    needs: prepare
+
+    runs-on: 'macos-latest'
+    strategy:
+      matrix:
+        target:
+        - x86_64-apple-darwin
+        - aarch64-apple-darwin
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Prepare
+    - name: Install Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          profile: minimal
+          target: ${{ matrix.target }}
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.target }}
+
+    # Binary Release
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        use-cross: false
+        args: >
+          --release
+          --target ${{ matrix.target }}
+    - name: Package
+      run: |
+        mkdir bin
+        cp target/${{ matrix.target }}/release/nk bin
+        tar czf neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz README.md bin
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.target }}
+        path: neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+
+  docker:
+    needs:
+    - build
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install qemu dependency
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
+
+    - name: Download Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ steps.map_arch.outputs.result }}
+        path: artifacts
+
+    - name: Extract Artifact
+      run: |
+        for d in artifacts/*/; do
+          tar -C "$d" -xf "$d/"*.tar.gz;
+        done
+        ln -sr artifacts/{i686,x86}-unknown-linux-musl
+        ln -sr artifacts/armv7-unknown-linux-musl{eabihf,}
+    - name: List artifacts
+      run: |
+        find artifacts
+
+    - name: Build Docker Image
+      id: build-image
+      uses: redhat-actions/buildah-build@v2
+      with:
+        archs: "386, amd64, arm64, arm"
+        image: neatkube
+        tags: ${{ github.ref_name }} sha-${{ github.sha }} latest
+        containerfiles: ./Dockerfile.gh
+
+    - name: Push to Dockerhub
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-image.outputs.image }}
+        tags: ${{ steps.build-image.outputs.tags }}
+        registry: docker.io/withlazers
         username: withlazers
         password: ${{ secrets.DOCKER_TOKEN }}
-    - name: Build and push
-      uses: docker/build-push-action@v3
+
+  release:
+    needs:
+    - build
+    - build-apple
+    runs-on: 'ubuntu-latest'
+
+    steps:
+    - name: download artifacts
+      uses: actions/download-artifact@v3
       with:
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        context: .
+        path: artifacts
 
     - uses: softprops/action-gh-release@v1
       with:
+        fail_on_unmatched_files: true
         generate_release_notes: true
         draft: true
         files: |
-          bin/nk
+          artifacts/*/*

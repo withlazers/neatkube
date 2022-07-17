@@ -32,6 +32,22 @@ pub enum UpstreamImpl {
     Simple(SimpleUpstream),
 }
 
+fn default_arch() -> &'static str {
+    match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "x86" => "386",
+        "aarch64" => "arm64",
+        x => x,
+    }
+}
+
+fn default_os() -> &'static str {
+    match std::env::consts::OS {
+        "macos" => "darwin",
+        x => x,
+    }
+}
+
 impl UpstreamDefinition {
     pub fn version_url(&self) -> String {
         match &self.upstream_impl {
@@ -40,34 +56,18 @@ impl UpstreamDefinition {
         }
     }
 
-    fn default_arch(&self) -> &'static str {
-        match std::env::consts::ARCH {
-            "x86_64" => "amd64",
-            "x86" => "386",
-            "aarch64" => "arm64",
-            x => x,
-        }
-    }
-
-    fn default_os(&self) -> &'static str {
-        match std::env::consts::OS {
-            "macos" => "darwin",
-            x => x,
-        }
-    }
-
     pub fn os(&self) -> &str {
         self.os_map
-            .get(self.default_os())
+            .get(default_os())
             .map(String::as_str)
-            .unwrap_or(self.default_os())
+            .unwrap_or(default_os())
     }
 
     pub fn arch(&self) -> &str {
         self.arch_map
-            .get(self.default_arch())
+            .get(default_arch())
             .map(String::as_str)
-            .unwrap_or(self.default_arch())
+            .unwrap_or(default_arch())
     }
 
     pub fn package_url(&self, version: &str) -> String {
