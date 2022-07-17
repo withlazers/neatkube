@@ -1,6 +1,8 @@
 mod github_release;
 mod simple;
 
+use std::collections::HashMap;
+
 use crate::result::Result;
 pub use github_release::GithubReleaseUpstream;
 use serde::Deserialize;
@@ -14,44 +16,84 @@ pub trait Upstream {
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum UpstreamDefinition {
+pub struct UpstreamDefinition {
+    #[serde(flatten)]
+    pub upstream_impl: UpstreamImpl,
+    #[serde(default)]
+    pub os_map: HashMap<String, String>,
+    #[serde(default)]
+    pub arch_map: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum UpstreamImpl {
     GithubRelease(GithubReleaseUpstream),
     Simple(SimpleUpstream),
 }
 
 impl UpstreamDefinition {
     pub fn version_url(&self) -> String {
-        match self {
-            UpstreamDefinition::GithubRelease(upstream) => {
-                upstream.version_url()
-            }
-            UpstreamDefinition::Simple(upstream) => upstream.version_url(),
+        match &self.upstream_impl {
+            UpstreamImpl::GithubRelease(upstream) => upstream.version_url(),
+            UpstreamImpl::Simple(upstream) => upstream.version_url(),
         }
     }
 
+    fn default_arch(&self) -> &'static str {
+        match std::env::consts::ARCH {
+            "x86_64" => "amd64",
+            "x86" => "386",
+            "aarch64" => "arm64",
+            x => x,
+        }
+    }
+
+    fn default_os(&self) -> &'static str {
+        match std::env::consts::OS {
+            "macos" => "darwin",
+            x => x,
+        }
+    }
+
+    pub fn os(&self) -> &str {
+        self.os_map
+            .get(self.default_os())
+            .map(String::as_str)
+            .unwrap_or(self.default_os())
+    }
+
+    pub fn arch(&self) -> &str {
+        self.arch_map
+            .get(self.default_arch())
+            .map(String::as_str)
+            .unwrap_or(self.default_arch())
+    }
+
     pub fn package_url(&self, version: &str) -> String {
-        let url = match self {
-            UpstreamDefinition::GithubRelease(upstream) => {
-                upstream.package_url()
-            }
-            UpstreamDefinition::Simple(upstream) => upstream.package_url(),
+        let url = match &self.upstream_impl {
+            UpstreamImpl::GithubRelease(upstream) => upstream.package_url(),
+            UpstreamImpl::Simple(upstream) => upstream.package_url(),
         };
 
-        url.replace("{version}", version).replace(
-            "{stripped_version}",
-            version.strip_prefix('v').unwrap_or(version),
-        )
+        url.replace("{arch}", self.arch())
+            .replace("{os}", self.os())
+            .replace("{version}", version)
+            .replace(
+                "{stripped_version}",
+                version.strip_prefix('v').unwrap_or(version),
+            )
     }
 
     pub fn parse_version_from_response(
         &self,
         response: &str,
     ) -> Result<String> {
-        match self {
-            UpstreamDefinition::GithubRelease(upstream) => {
+        match &self.upstream_impl {
+            UpstreamImpl::GithubRelease(upstream) => {
                 upstream.parse_version_from_response(response)
             }
-            UpstreamDefinition::Simple(upstream) => {
+            UpstreamImpl::Simple(upstream) => {
                 upstream.parse_version_from_response(response)
             }
         }

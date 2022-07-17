@@ -10,7 +10,7 @@ tools:
   upstream:
     github_release:
       repo: helm/helm
-      package_url: https://get.helm.sh/helm-{version}-linux-amd64.tar.gz
+      package_url: https://get.helm.sh/helm-{version}-{os}-{arch}.tar.gz
   extract_command: tar -Oxz linux-amd64/helm
 - name: helmfile
   description: Deploy Kubernetes Helm Charts
@@ -21,7 +21,7 @@ tools:
   upstream:
     github_release:
       repo: roboll/helmfile
-      file: helmfile_linux_amd64
+      file: helmfile_{os}_{arch}
 - name: k9s
   aliases:
   - "9"
@@ -29,6 +29,12 @@ tools:
   dependencies:
   - kubectl
   upstream:
+    arch_map:
+      amd64: x86_64
+    os_map:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
     github_release:
       repo: derailed/k9s
       file: k9s_Linux_x86_64.tar.gz
@@ -40,7 +46,7 @@ tools:
   upstream:
     simple:
       version_url: https://dl.k8s.io/release/latest.txt
-      package_url: https://dl.k8s.io/release/{version}/bin/linux/amd64/kubectl
+      package_url: https://dl.k8s.io/release/{version}/bin/{os}/{arch}/kubectl
 - name: yq
   description: yq is a portable command-line YAML, JSON and XML processor
   upstream:
@@ -54,21 +60,21 @@ tools:
   upstream:
     github_release:
       repo: bitnami-labs/sealed-secrets
-      file: kubeseal-{stripped_version}-linux-amd64.tar.gz
+      file: kubeseal-{stripped_version}-{os}-{arch}.tar.gz
   extract_command: tar -Oxz kubeseal
 - name: istio
   description: Connect, secure, control, and observe services.
   upstream:
     github_release:
       repo: istio/istio
-      file: istio-{stripped_version}-linux-amd64.tar.gz
+      file: istio-{stripped_version}-{os}-{arch}.tar.gz
   extract_command: tar -Oxz istio-{stripped_version}/bin/istioctl
 - name: linkerd
   description: Ultralight, security-first service mesh for Kubernetes.
   upstream:
     github_release:
       repo: linkerd/linkerd2
-      file: linkerd2-cli-{version}-linux-amd64
+      file: linkerd2-cli-{version}-{os}-{arch}
 - name: minikube
   description: Run Kubernetes locally
   aliases:
@@ -78,17 +84,17 @@ tools:
   upstream:
     github_release:
       repo: kubernetes/minikube
-      file: minikube-linux-amd64
+      file: minikube-{os}-{arch}
 - name: docker-machine-driver-kvm2
   description: Run Kubernetes locally [kvm driver]
   upstream:
     github_release:
       repo: kubernetes/minikube
-      file: docker-machine-driver-kvm2-amd64
+      file: docker-machine-driver-kvm2-{arch}
 - name: stern
   description: Multi pod and container log tailing for Kubernetes
   upstream:
     github_release:
       repo: stern/stern
-      file: stern_{stripped_version}_linux_amd64.tar.gz
+      file: stern_{stripped_version}_{os}_{arch}.tar.gz
   extract_command: tar -Oxz stern
