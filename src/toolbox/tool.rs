@@ -91,9 +91,9 @@ impl ToolDefinition {
 }
 
 pub struct Tool<'a> {
-    toolbox: &'a Toolbox,
-    definition: &'a ToolDefinition,
-    version: Mutex<Vec<VersionRef>>,
+    pub toolbox: &'a Toolbox,
+    pub definition: &'a ToolDefinition,
+    pub version: Mutex<Vec<VersionRef>>,
 }
 
 impl<'a> Tool<'a> {
@@ -416,5 +416,13 @@ impl<'a> Tool<'a> {
             .about(&*self.definition.description);
 
         command
+    }
+
+    pub async fn remove(self) -> Result<()> {
+        let bin_path = self.exec_path().await?;
+        if bin_path.exists() {
+            fs::remove_file(&bin_path).await?;
+        }
+        Ok(())
     }
 }

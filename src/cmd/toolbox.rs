@@ -103,11 +103,44 @@ impl Update {
 }
 
 #[derive(Parser, Debug)]
+pub struct Cleanup {}
+impl Cleanup {
+    async fn run(&self, toolbox: &Toolbox) -> Result<()> {
+        let tools = toolbox.installed_tools().await?;
+        for tool in tools {
+            let tool =
+                Tool::new_with_version(tool, toolbox, vec![VersionRef::Latest]);
+            self.cleanup_tool(&tool).await?;
+        }
+        Ok(())
+    }
+
+    async fn cleanup_tool(&self, tool: &Tool<'_>) -> Result<()> {
+        let all_versions = tool.find_local_versions().await?;
+        let current_version = tool.find_local_version().await?;
+        for version in all_versions {
+            if Some(version.clone()) != current_version {
+                continue;
+            }
+
+            let tool = Tool::new_with_version(
+                tool.definition,
+                tool.toolbox,
+                vec![VersionRef::Specific(version)],
+            );
+            tool.remove().await?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Parser, Debug)]
 pub enum Subcommand {
     List(List),
     Update(Update),
     Remote(Remote),
     Install(Install),
+    Cleanup(Cleanup),
 }
 
 impl ToolboxCommand {
@@ -117,6 +150,7 @@ impl ToolboxCommand {
             Subcommand::Remote(remote) => remote.run(toolbox).await,
             Subcommand::Update(update) => update.run(toolbox).await,
             Subcommand::Install(install) => install.run(toolbox).await,
+            Subcommand::Cleanup(cleanup) => cleanup.run(toolbox).await,
         }
     }
 }
