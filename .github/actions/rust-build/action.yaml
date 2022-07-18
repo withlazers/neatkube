@@ -1,0 +1,45 @@
+name: Build Rust
+description: "Builds a rust project and uploads the result as an artifact"
+inputs:
+  target:
+    description: "the build target"
+    required: true
+  use-cross:
+    description: "use cross"
+    required: true
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+  - name: Install Toolchain
+    uses: actions-rs/toolchain@v1
+    with:
+        toolchain: stable
+        profile: minimal
+        target: ${{ inputs.target }}
+
+  - name: Setup Cache
+    uses: Swatinem/rust-cache@v2
+    with:
+      key: ${{ inputs.target }}
+
+  - name: Build
+    uses: actions-rs/cargo@v1
+    with:
+      command: build
+      use-cross: ${{ inputs.use-cross }}
+      args: >
+        --release
+        --target ${{ inputs.target }}
+  - name: Package
+    shell: bash
+    run: |
+      mkdir bin
+      cp target/${{ inputs.target }}/release/nk bin
+      tar czf neatkube-${{ github.ref_name }}-${{ inputs.target }}.tar.gz README.md bin
+  - name: Upload Artifact
+    uses: actions/upload-artifact@v3
+    with:
+      name: ${{ inputs.target }}
+      path: neatkube-${{ github.ref_name }}-${{ inputs.target }}.tar.gz
