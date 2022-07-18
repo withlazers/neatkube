@@ -1,4 +1,7 @@
-use std::{convert::Infallible, iter, path::Path, process::Stdio};
+use std::{
+    collections::BTreeMap, convert::Infallible, iter, path::Path,
+    process::Stdio,
+};
 
 use crate::{
     error::TError,
@@ -18,7 +21,7 @@ use kube_client::{
 };
 use log::info;
 use std::result::Result as StdResult;
-use tokio::{io, process::Command};
+use tokio::{io, process::Command, task};
 
 use futures::{StreamExt, TryStreamExt};
 
@@ -28,6 +31,10 @@ pub struct ShellCommand {
     /// container image to start
     #[clap(short, long, default_value = concat!("withlazers/", env!("CARGO_PKG_NAME"), ":v", env!("CARGO_PKG_VERSION")))]
     image: String,
+
+    /// edit yaml before starting the pod
+    #[clap(short = 'e', long, action)]
+    edit: bool,
 
     /// namespace to use, default is infered
     #[clap(short, long, env = "NAMESPACE")]
@@ -54,7 +61,7 @@ pub struct ShellCommand {
     privileged: bool,
 
     /// service account to use
-    #[clap(short = 'a', long, name = "ACCOUNT")]
+    #[clap(short = 'A', long, name = "ACCOUNT")]
     service_account: Option<String>,
 
     /// mounts a PVC. if no path is given, the secret will be mounted at /pvc
@@ -75,8 +82,22 @@ pub struct ShellCommand {
     #[clap(short, long, value_parser = upload_parser, name = "LOCAL:PATH")]
     upload: Option<(String, String)>,
 
+    #[clap(short = 'l', long, value_parser = kv_parser, name = "LABEL=VALUE")]
+    label: Vec<(String, String)>,
+
+    #[clap(short = 'a', long, value_parser = kv_parser, name = "ANNOTATION=VALUE")]
+    annotation: Vec<(String, String)>,
+
     #[clap(default_value = "/bin/sh")]
     args: Vec<String>,
+}
+
+fn kv_parser(input: &str) -> StdResult<(String, String), TError> {
+    let volume = match &input.split_once('=') {
+        Some((name, path)) => (name.to_string(), path.to_string()),
+        None => Err("Must be key=value")?,
+    };
+    Ok(volume)
 }
 
 fn upload_parser(input: &str) -> StdResult<(String, String), TError> {
@@ -205,9 +226,15 @@ impl ShellCommand {
             [("kubernetes.io/hostname".to_string(), node.clone())].into()
         });
 
+        let annotation: BTreeMap<_, _> =
+            self.annotation.clone().into_iter().collect();
+        let labels: BTreeMap<_, _> = self.label.clone().into_iter().collect();
+
         let pod = Pod {
             metadata: ObjectMeta {
                 name: pod_name.clone().into(),
+                annotations: annotation.into(),
+                labels: labels.into(),
                 ..Default::default()
             },
             spec: PodSpec {
@@ -233,6 +260,13 @@ impl ShellCommand {
             }
             .into(),
             ..Default::default()
+        };
+
+        // TODO: This is sync code.
+        let pod = if self.edit {
+            self.edit_pod(pod).await?
+        } else {
+            pod
         };
 
         let pods: Api<Pod> = Api::namespaced(client, &namespace);
@@ -350,5 +384,41 @@ impl ShellCommand {
             Err("kubectl failed".to_string())?
         }
         Ok(())
+    }
+
+    async fn edit_pod(&self, pod: Pod) -> Result<Pod> {
+        Ok(task::spawn_blocking(move || {
+            let mut pod_content = serde_yaml::to_string(&pod).unwrap();
+            let mut builder = edit::Builder::new();
+            builder.prefix("pod-").suffix(".yaml");
+            let mut err_msg = String::new();
+            loop {
+                let content = if err_msg.is_empty() {
+                    pod_content.clone()
+                } else {
+                    format!(
+                        "{}\n{}",
+                        err_msg
+                            .split_inclusive('\n')
+                            .map(|x| format!("# {}", x))
+                            .collect::<String>(),
+                        pod_content
+                    )
+                };
+                let content =
+                    edit::edit_with_builder(content, &builder).unwrap();
+                match serde_yaml::from_str::<Pod>(&content) {
+                    Ok(x) => return x,
+                    Err(x) => {
+                        err_msg = x.to_string();
+                        pod_content = content
+                            .split_inclusive('\n')
+                            .skip_while(|x| x.starts_with("# "))
+                            .collect();
+                    }
+                }
+            }
+        })
+        .await?)
     }
 }
