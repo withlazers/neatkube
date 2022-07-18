@@ -1,9 +1,10 @@
 name: Release
 on:
   push:
+    branches:
+    - main
     tags:
-      - 'v[0-9]*.[0-9]*.[0-9]*'
-
+    - 'v[0-9]*.[0-9]*.[0-9]*'
 
 jobs:
   prepare:
@@ -24,7 +25,6 @@ jobs:
 
   build:
     needs: prepare
-
     runs-on: 'ubuntu-latest'
     strategy:
       matrix:
@@ -33,87 +33,29 @@ jobs:
         - i686-unknown-linux-musl
         - x86_64-unknown-linux-musl
         - armv7-unknown-linux-musleabihf
-
         #- i686-pc-windows-gnu
         #- x86_64-pc-windows-gnu
-
     steps:
     - uses: actions/checkout@v3
-
-    # Prepare
-    - name: Install Toolchain
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/rust-build
       with:
-          toolchain: stable
-          profile: minimal
-          target: ${{ matrix.target }}
-    - uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.target }}
-
-    # Binary Release
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
+        target: ${{ matrix.target }}
         use-cross: true
-        args: >
-          --release
-          --target ${{ matrix.target }}
-    - name: Package
-      run: |
-        mkdir bin
-        cp target/${{ matrix.target }}/release/nk bin
-        tar czf neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz README.md bin
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.target }}
-        path: neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
 
   build-apple:
     needs: prepare
-
     runs-on: 'macos-latest'
     strategy:
       matrix:
         target:
         - x86_64-apple-darwin
         - aarch64-apple-darwin
-
     steps:
     - uses: actions/checkout@v3
-
-    # Prepare
-    - name: Install Toolchain
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/rust-build
       with:
-          toolchain: stable
-          profile: minimal
-          target: ${{ matrix.target }}
-    - uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.target }}
-
-    # Binary Release
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
+        target: ${{ matrix.target }}
         use-cross: false
-        args: >
-          --release
-          --target ${{ matrix.target }}
-    - name: Package
-      run: |
-        mkdir bin
-        cp target/${{ matrix.target }}/release/nk bin
-        tar czf neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz README.md bin
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.target }}
-        path: neatkube-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
 
   docker:
     needs:
@@ -155,6 +97,7 @@ jobs:
         containerfiles: ./Dockerfile.gh
 
     - name: Push to Dockerhub
+      if: startsWith(github.ref, 'refs/tags/v')
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
@@ -177,6 +120,7 @@ jobs:
         path: artifacts
 
     - uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/v')
       with:
         fail_on_unmatched_files: true
         generate_release_notes: true
