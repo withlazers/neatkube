@@ -1,3 +1,4 @@
+mod platform;
 mod repository;
 pub mod tool;
 mod upstream;

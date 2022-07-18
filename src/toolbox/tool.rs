@@ -1,9 +1,8 @@
 use std::{
     env,
-    ffi::{CString, OsStr, OsString},
+    ffi::{OsStr, OsString},
     iter,
     ops::{Deref, DerefMut},
-    os::unix::prelude::{OsStrExt, PermissionsExt},
     path::PathBuf,
     process::Stdio,
     str::FromStr,
@@ -13,8 +12,6 @@ use crate::download::Downloader;
 use crate::error::Error;
 use crate::result::Result;
 use clap::Arg;
-use nix::unistd::execve;
-use os_str_bytes::OsStrBytes;
 use serde::Deserialize;
 use tokio::{
     fs, fs::File, io::AsyncReadExt, io::AsyncWriteExt, process::Command,
@@ -22,7 +19,11 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 
-use super::{upstream::UpstreamDefinition, Toolbox};
+use super::{
+    platform::{arg0, execve, set_exec},
+    upstream::UpstreamDefinition,
+    Toolbox,
+};
 use dewey::VersionCmp;
 
 static ARGS_NAME: &str = "args";
@@ -176,7 +177,7 @@ impl<'a> Tool<'a> {
 
     pub async fn run<'b, I, S>(&self, args: I) -> Result<()>
     where
-        S: AsRef<[u8]>,
+        S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
         if !self.is_installed().await? {
@@ -188,14 +189,13 @@ impl<'a> Tool<'a> {
 
     async fn exec<'b, I, S>(&self, args: I) -> Result<()>
     where
-        S: AsRef<[u8]>,
+        S: AsRef<str>,
         I: IntoIterator<Item = S>,
     {
         let tool_name = self.name();
         let bin = self.exec_path().await?;
-        let bin = CString::new(bin.to_raw_bytes()).unwrap();
-        let args = args.into_iter().map(|x| CString::new(x.as_ref()).unwrap());
-        let exec_args = iter::once(CString::new(tool_name).unwrap())
+        let args = args.into_iter().map(|x| OsString::from(x.as_ref()));
+        let exec_args = iter::once(OsString::from(tool_name))
             .chain(args)
             .collect::<Vec<_>>();
         execve(&bin, &exec_args, &self.get_exec_env().await?)?;
@@ -215,7 +215,8 @@ impl<'a> Tool<'a> {
         let bin = self.exec_path().await?;
 
         let mut command = Command::new(&bin);
-        command.arg0(tool_name).args(args);
+        arg0(&mut command, tool_name);
+        command.args(args);
         Ok(command)
     }
 
@@ -233,7 +234,7 @@ impl<'a> Tool<'a> {
         Ok(result)
     }
 
-    async fn get_exec_env(&self) -> Result<Vec<CString>> {
+    async fn get_exec_env(&self) -> Result<Vec<OsString>> {
         let bin_dir_path = self.build_path_env().await?;
         let new_env = env::vars_os()
             .into_iter()
@@ -248,7 +249,8 @@ impl<'a> Tool<'a> {
             .map(|(mut var, value)| {
                 var.push("=");
                 var.push(value);
-                CString::new(var.as_bytes()).unwrap()
+                var
+                //CString::new(var.as_bytes()).unwrap()
             })
             .collect();
         Ok(new_env)
@@ -377,7 +379,7 @@ impl<'a> Tool<'a> {
             writer?;
         }
         let mut permission = file.metadata().await?.permissions();
-        permission.set_mode(0o755);
+        set_exec(&mut permission);
         fs::set_permissions(&temp_bin_path, permission).await?;
         fs::rename(&temp_bin_path, &bin_path).await?;
 
