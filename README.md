@@ -1,6 +1,14 @@
 Neatkube
 ========
 
+```
+ /.     __     .\
+| |_.-`/  \`-._| |
+| |___/    \___| |
+ \______________/
+     Neatkube
+```
+
 The last kubernetes tool you'll ever need.
 
 Kubernetes is a mess. Everthing ships it's own command line tools that you need
@@ -12,56 +20,55 @@ access to it.
 
 Neatkube downloads tools on demand and is able to keep them up to date.
 
-### Usage examples:
+## Features
 
-#### start k9s:
+### 🧰 Toolbox
 
-```
-nk
-```
+Neatkube includes many regulary used kubernetes tools, that will be downloaded
+on demand:
 
-Neatkube by default calls k9s if there are no arguments present.
-You may even define options that will be passed to k9s:
+* 🎮[kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
+* 🪖[helm](https://helm.sh)
+* 🗄️ [helmfile](https://github.com/roboll/helmfile)
+* 🎛️ [k9s](https://k9scli.io/)
+* 🔍[yq](https://github.com/mikefarah/yq)
+* 🦭[kubeseal](https://sealed-secrets.netlify.app/)
+* 📜[istio](https://istio.io/)
+* 🔗[linkerd](https://linkerd.io/)
+* 🧒[minikube](https://minikube.sigs.k8s.io/)
+* 🌠[stern](https://github.com/stern/stern)
 
-```
-nk -n kube-system
-```
-
-#### call kubectl to get all pods of a cluster
-
-```
-nk get pods -A
-```
-
-#### install a helm chart
+#### Example `helm`
 
 ```
-nk helm install bitnami/wordpress awesomeblog
+nk helm install ...
 ```
 
-#### Start a new pod and open a shell with a hostmount and a specific serviceaccount
+#### Example `k9s`
 
 ```
-nk shell -a my-service-account -H /:/my-host
+nk 9 -n kube-system
 ```
 
-* `/my-host` is optional, by default a hostmount will be mounted as `/host`
+### 🐚 Shell-in-a-pod
 
-#### Spit out a dereferenced version of your kubeconfig
+It's a common task to start a debug pod on kubernetes. *Neatkube* eases the
+start and the configuration of such a debug pod.
 
-```
-nk cfgpack
-```
-
-This kubeconfig has no dependencies to other files and can be moved for examples
-to other hosts.
-
-#### List all available tools
-
-By default `nk help` only lists tools that are already present locally. The
-command below lists all available tools, not included the builtin helpers
-such as `nk shell`:
+#### Example simple shell
 
 ```
-nk toolbox list
+nk shell -n default
+```
+
+### 🧳 pack the configuration
+
+*Neatkube* provides a small tool that reads a kubeconfig file and includes all
+external resources. This is useful for `minikube` for example, that by default
+puts its certificates on a different place on the file system.
+
+#### Example cfgpack
+
+```
+nk cfgpack /path/to/kubeconfig
 ```
