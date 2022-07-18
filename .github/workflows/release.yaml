@@ -38,6 +38,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/rust-build
+      name: Build
       with:
         target: ${{ matrix.target }}
         use-cross: true
@@ -53,6 +54,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/rust-build
+      name: Build
       with:
         target: ${{ matrix.target }}
         use-cross: false
