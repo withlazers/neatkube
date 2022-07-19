@@ -23,6 +23,8 @@ use log::info;
 use std::result::Result as StdResult;
 use tokio::{io, process::Command, task};
 
+use randstr::randstr;
+
 use futures::{StreamExt, TryStreamExt};
 
 #[derive(Parser, Debug)]
@@ -140,16 +142,14 @@ impl ShellCommand {
     pub async fn run(self, toolbox: &Toolbox) -> Result<()> {
         let config = Config::infer().await?;
         let client = Client::try_from(config.clone())?;
+        let mut random = randstr().len(6).lower().digit().try_build()?;
         let namespace = self
             .namespace
             .as_ref()
             .unwrap_or(&config.default_namespace)
             .clone();
-        let pod_name = format!(
-            "{}-shell-{}",
-            env!("CARGO_PKG_NAME"),
-            random_string::generate(6, "abcdefghijklmnopqrstuvwxyz1234567890")
-        );
+        let pod_name =
+            format!("{}-shell-{}", env!("CARGO_PKG_NAME"), random.generate());
         let container_name = env!("CARGO_PKG_NAME");
 
         let command: Vec<_> = ["/bin/sleep", "infinity"]
