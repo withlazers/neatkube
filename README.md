@@ -27,16 +27,16 @@ Neatkube downloads tools on demand and is able to keep them up to date.
 Neatkube includes many regulary used kubernetes tools, that will be downloaded
 on demand:
 
-* 🎮[kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
-* 🪖[helm](https://helm.sh)
-* 🗄️ [helmfile](https://github.com/roboll/helmfile)
-* 🎛️ [k9s](https://k9scli.io/)
-* 🔍[yq](https://github.com/mikefarah/yq)
-* 🦭[kubeseal](https://sealed-secrets.netlify.app/)
-* 📜[istio](https://istio.io/)
-* 🔗[linkerd](https://linkerd.io/)
-* 🧒[minikube](https://minikube.sigs.k8s.io/)
-* 🌠[stern](https://github.com/stern/stern)
+* [🎮kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
+* [🪖helm](https://helm.sh)
+* [🗄️helmfile](https://github.com/roboll/helmfile)
+* [🎛️k9s](https://k9scli.io/)
+* [🔍yq](https://github.com/mikefarah/yq)
+* [🦭kubeseal](https://sealed-secrets.netlify.app/)
+* [📜istio](https://istio.io/)
+* [🔗linkerd](https://linkerd.io/)
+* [🧒minikube](https://minikube.sigs.k8s.io/)
+* [🌠stern](https://github.com/stern/stern)
 
 #### Example `helm`
 
