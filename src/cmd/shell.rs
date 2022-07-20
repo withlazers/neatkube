@@ -1,27 +1,21 @@
-use std::{
-    collections::BTreeMap, convert::Infallible, iter, path::Path,
-    process::Stdio,
-};
+use std::convert::Infallible;
 
 use crate::{
     error::TError,
+    podutil::{builder::PodBuilder, exec::PodExec, upload::PodUpload},
     result::Result,
-    toolbox::{tool::Tool, Toolbox},
+    toolbox::Toolbox,
 };
 use clap::Parser;
-use k8s_openapi::api::core::v1::{
-    ConfigMapVolumeSource, Container, HostPathVolumeSource,
-    PersistentVolumeClaimVolumeSource, Pod, PodSpec, SecretVolumeSource,
-    SecurityContext, Volume, VolumeMount,
-};
+use k8s_openapi::api::core::v1::Pod;
 use kube_client::{
     api::{DeleteParams, ListParams, PostParams},
-    core::{ObjectMeta, WatchEvent},
+    core::WatchEvent,
     Api, Client, Config, ResourceExt,
 };
 use log::info;
 use std::result::Result as StdResult;
-use tokio::{io, process::Command, task};
+use tokio::task;
 
 use randstr::randstr;
 
@@ -79,10 +73,10 @@ pub struct ShellCommand {
     hostdir: Vec<(String, Option<String>)>,
 
     #[clap(short, long, value_parser = volume_parser, name = "CMAP[:PATH]")]
-    config_maps: Vec<(String, Option<String>)>,
+    config_map: Vec<(String, Option<String>)>,
 
     #[clap(short, long, value_parser = upload_parser, name = "LOCAL:PATH")]
-    upload: Option<(String, String)>,
+    upload: Vec<(String, String)>,
 
     #[clap(short = 'l', long, value_parser = kv_parser, name = "LABEL=VALUE")]
     label: Vec<(String, String)>,
@@ -92,6 +86,10 @@ pub struct ShellCommand {
 
     #[clap(default_value = "/bin/sh")]
     args: Vec<String>,
+
+    /// do not terminate the pod on exit
+    #[clap(short, long, action)]
+    keep: bool,
 }
 
 fn kv_parser(input: &str) -> StdResult<(String, String), TError> {
@@ -123,22 +121,6 @@ fn volume_parser(
 }
 
 impl ShellCommand {
-    fn gen_volumes(
-        kind: &'static str,
-        volumes: &[(String, Option<String>)],
-    ) -> Vec<(String, String, String)> {
-        volumes
-            .iter()
-            .enumerate()
-            .map(move |(i, (name, path))| {
-                (
-                    format!("{}-{}", kind, i),
-                    name.clone(),
-                    path.clone().unwrap_or_else(|| format!("/{kind}/{name}")),
-                )
-            })
-            .collect()
-    }
     pub async fn run(self, toolbox: &Toolbox) -> Result<()> {
         let config = Config::infer().await?;
         let client = Client::try_from(config.clone())?;
@@ -150,130 +132,96 @@ impl ShellCommand {
             .clone();
         let pod_name =
             format!("{}-shell-{}", env!("CARGO_PKG_NAME"), random.generate());
-        let container_name = env!("CARGO_PKG_NAME");
 
-        let command: Vec<_> = ["/bin/sleep", "infinity"]
-            .into_iter()
-            .map(String::from)
-            .collect();
+        let mut pod_builder = PodBuilder::new();
+        pod_builder
+            .name(&pod_name)
+            .image(&self.image)
+            .host_ipc(self.host_ipc)
+            .host_network(self.host_network)
+            .host_pid(self.host_pid)
+            .labels(self.label.clone())
+            .annotations(self.annotation.clone());
 
-        let secrets = Self::gen_volumes("secret", &self.secrets);
-        let config_maps = Self::gen_volumes("configmap", &self.config_maps);
-        let pvcs = Self::gen_volumes("pvc", &self.pvcs);
-        let host_dirs = Self::gen_volumes("host", &self.hostdir);
+        for (secret, path) in &self.secrets {
+            pod_builder.secret(secret, path.as_ref());
+        }
+        for (config_map, path) in &self.config_map {
+            pod_builder.config_map(config_map, path.as_ref());
+        }
+        for (pvc, path) in &self.pvcs {
+            pod_builder.pvc(pvc, path.as_ref());
+        }
+        for (host_dir, path) in &self.hostdir {
+            pod_builder.host_dir(host_dir, path.as_ref());
+        }
 
-        let volumes: Vec<_> = iter::empty()
-            .chain(secrets.iter().map(|(volume_name, name, _)| {
-                Volume {
-                    name: volume_name.clone(),
-                    secret: SecretVolumeSource {
-                        secret_name: name.clone().into(),
-                        ..Default::default()
-                    }
-                    .into(),
-                    ..Default::default()
-                }
-            }))
-            .chain(config_maps.iter().map(|(volume_name, name, _)| {
-                Volume {
-                    name: volume_name.clone(),
-                    config_map: ConfigMapVolumeSource {
-                        name: name.clone().into(),
-                        ..Default::default()
-                    }
-                    .into(),
-                    ..Default::default()
-                }
-            }))
-            .chain(config_maps.iter().map(|(volume_name, name, _)| {
-                Volume {
-                    name: volume_name.clone(),
-                    persistent_volume_claim:
-                        PersistentVolumeClaimVolumeSource {
-                            claim_name: name.clone(),
-                            ..Default::default()
-                        }
-                        .into(),
-                    ..Default::default()
-                }
-            }))
-            .chain(host_dirs.iter().map(|(volumen_name, host_path, _)| {
-                Volume {
-                    name: volumen_name.clone(),
-                    host_path: HostPathVolumeSource {
-                        path: host_path.clone(),
-                        ..Default::default()
-                    }
-                    .into(),
-                    ..Default::default()
-                }
-            }))
-            .collect();
+        if let Some(node_selector) = self.node.as_ref() {
+            pod_builder.node_selector(node_selector);
+        }
 
-        let volume_mounts: Vec<_> = iter::empty()
-            .chain(secrets)
-            .chain(config_maps)
-            .chain(pvcs)
-            .chain(host_dirs)
-            .map(|(volume_name, _, path)| VolumeMount {
-                name: volume_name,
-                mount_path: path,
-                ..Default::default()
-            })
-            .collect();
+        pod_builder.annotations(self.annotation.clone());
+        pod_builder.labels(self.label.clone());
 
-        let node_selector = self.node.as_ref().map(|node| {
-            [("kubernetes.io/hostname".to_string(), node.clone())].into()
-        });
-
-        let annotation: BTreeMap<_, _> =
-            self.annotation.clone().into_iter().collect();
-        let labels: BTreeMap<_, _> = self.label.clone().into_iter().collect();
-
-        let pod = Pod {
-            metadata: ObjectMeta {
-                name: pod_name.clone().into(),
-                annotations: annotation.into(),
-                labels: labels.into(),
-                ..Default::default()
-            },
-            spec: PodSpec {
-                service_account_name: self.service_account.clone(),
-                host_ipc: self.host_ipc.into(),
-                host_network: self.host_network.into(),
-                host_pid: self.host_pid.into(),
-                containers: vec![Container {
-                    name: container_name.to_string(),
-                    image: self.image.clone().into(),
-                    command: command.into(),
-                    security_context: SecurityContext {
-                        privileged: Some(self.privileged),
-                        ..Default::default()
-                    }
-                    .into(),
-                    volume_mounts: volume_mounts.into(),
-                    ..Default::default()
-                }],
-                volumes: volumes.into(),
-                node_selector,
-                ..Default::default()
-            }
-            .into(),
-            ..Default::default()
-        };
-
-        // TODO: This is sync code.
+        let pod = pod_builder.build();
         let pod = if self.edit {
             self.edit_pod(pod).await?
         } else {
             pod
         };
+        let container_name =
+            &pod.spec.as_ref().unwrap().containers.first().unwrap().name;
 
         let pods: Api<Pod> = Api::namespaced(client, &namespace);
         pods.create(&PostParams::default(), &pod).await?;
 
-        let lp = ListParams::default()
-            .fields(&format!("metadata.name={}", pod.name()));
+        tokio::select! {
+            r = self.wait_for_pod(&pods, &pod_name) => r?,
+            _ = tokio::signal::ctrl_c() => {
+                self.delete_pod(&pods, &pod_name).await?;
+                std::process::exit(130);
+            }
+        }
+
+        for (local, remote) in self.upload.iter() {
+            PodUpload::new(toolbox)
+                .name(&pod.name())
+                .namespace(&namespace)
+                .container_name(container_name)
+                .upload(local, remote)
+                .await?;
+        }
+
+        PodExec::new(toolbox)
+            .terminal(true)
+            .name(&pod.name())
+            .namespace(&namespace)
+            .container_name(container_name)
+            .command(self.args.clone())
+            .await?
+            .spawn()?
+            .wait()
+            .await?;
+
+        if !self.keep {
+            self.delete_pod(&pods, &pod_name).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn delete_pod(&self, pods: &Api<Pod>, name: &str) -> Result<()> {
+        pods.delete(name, &DeleteParams::default())
+            .await?
+            .map_left(|pdel| {
+                assert_eq!(pdel.name(), name);
+            });
+        Ok(())
+    }
+
+    async fn wait_for_pod(&self, pods: &Api<Pod>, name: &str) -> Result<()> {
+        let lp =
+            ListParams::default().fields(&format!("metadata.name={}", name));
         let mut stream = pods.watch(&lp, "0").await?.boxed();
         while let Some(status) = stream.try_next().await? {
             match status {
@@ -289,99 +237,6 @@ impl ShellCommand {
                 }
                 _ => {}
             }
-        }
-
-        let kubectl = toolbox.tool("kubectl")?;
-        let default_args: Vec<_> = [
-            "exec",
-            "-it",
-            "-c",
-            container_name,
-            "--namespace",
-            &namespace,
-            &pod_name,
-            "--",
-        ]
-        .into_iter()
-        .map(String::from)
-        .collect();
-
-        for upload in self.upload.iter() {
-            self.upload(&kubectl, &default_args, upload).await?;
-        }
-
-        let args = default_args.iter().chain(self.args.iter());
-        kubectl.command(args).await?.spawn()?.wait().await?;
-
-        // Delete it
-        pods.delete(&pod.name(), &DeleteParams::default())
-            .await?
-            .map_left(|pdel| {
-                assert_eq!(pdel.name(), pod.metadata.name.unwrap());
-            });
-
-        Ok(())
-    }
-
-    async fn upload(
-        &self,
-        kubectl: &Tool<'_>,
-        args: &[String],
-        upload: &(String, String),
-    ) -> Result<()> {
-        let (local, remote) = upload;
-        let compression = "-z";
-        let receive_args: Vec<_> = [
-            "/bin/sh",
-            "-c",
-            format!(r#"mkdir -p "$1" && exec tar -C "$1" {} -xv"#, compression)
-                .as_str(),
-            "-",
-            remote,
-        ]
-        .into_iter()
-        .map(String::from)
-        .collect();
-
-        // TODO: there must be a more elegant way to do this
-        let kubectl_args = args
-            .iter()
-            .cloned()
-            .map(|a| if a == "-it" { "-i".to_string() } else { a })
-            .chain(receive_args);
-        eprintln!("Uploading {} to {}", local, remote);
-        let path = Path::new(local);
-        let (dir, file) = if path.is_dir() {
-            (path, ".")
-        } else {
-            (
-                path.parent().unwrap_or_else(|| Path::new(".")),
-                path.file_name().unwrap().to_str().unwrap(),
-            )
-        };
-
-        let mut tar_cmd = Command::new("tar")
-            .args(&["-C", dir.to_str().unwrap(), "-c", compression, file])
-            .stdout(Stdio::piped())
-            .spawn()?;
-        let mut kubectl_cmd = kubectl
-            .command(kubectl_args)
-            .await?
-            .stdin(Stdio::piped())
-            .spawn()?;
-        io::copy(
-            tar_cmd.stdout.as_mut().unwrap(),
-            kubectl_cmd.stdin.as_mut().unwrap(),
-        )
-        .await?;
-        let (tar_exit, kubectl_exit) =
-            tokio::try_join!(tar_cmd.wait(), kubectl_cmd.wait())?;
-
-        if !tar_exit.success() {
-            Err("tar failed".to_string())?
-        }
-        if !kubectl_exit.success() {
-            Err("kubectl failed".to_string())?
         }
         Ok(())
     }

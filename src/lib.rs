@@ -3,6 +3,7 @@ pub mod completion;
 pub mod dirs;
 pub mod download;
 pub mod error;
+pub mod podutil;
 pub mod result;
 pub mod toolbox;
 
