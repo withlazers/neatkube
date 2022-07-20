@@ -60,14 +60,14 @@ impl UpstreamDefinition {
         self.os_map
             .get(default_os())
             .map(String::as_str)
-            .unwrap_or(default_os())
+            .unwrap_or_else(|| default_os())
     }
 
     pub fn arch(&self) -> &str {
         self.arch_map
             .get(default_arch())
             .map(String::as_str)
-            .unwrap_or(default_arch())
+            .unwrap_or_else(|| default_arch())
     }
 
     pub fn package_url(&self, version: &str) -> String {

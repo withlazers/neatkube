@@ -260,7 +260,7 @@ fn get_subcommands_of(parent: &Command) -> String {
         );
         let mut segments = vec![format!("({})", name)];
         let subcommand_args = get_args_of(
-            parser_of(parent, &*bin_name).expect("Error"),
+            parser_of(parent, bin_name).expect("Error"),
             Some(parent),
         );
 
@@ -270,7 +270,7 @@ fn get_subcommands_of(parent: &Command) -> String {
 
         // Get the help text of all child subcommands.
         let children =
-            get_subcommands_of(parser_of(parent, &*bin_name).expect("Error"));
+            get_subcommands_of(parser_of(parent, bin_name).expect("Error"));
 
         if !children.is_empty() {
             segments.push(children);
@@ -313,7 +313,7 @@ fn parser_of<'help, 'cmd>(
 ) -> Option<&'cmd Command<'help>> {
     debug!("parser_of: p={}, bin_name={}", parent.get_name(), bin_name);
 
-    if bin_name == parent.get_bin_name().unwrap_or(&String::new()) {
+    if bin_name == parent.get_bin_name().unwrap_or("") {
         return Some(parent);
     }
 
