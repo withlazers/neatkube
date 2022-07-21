@@ -59,54 +59,16 @@ jobs:
         target: ${{ matrix.target }}
         use-cross: false
 
-  docker:
+  container:
     needs:
     - build
     runs-on: 'ubuntu-latest'
 
     steps:
     - uses: actions/checkout@v3
-
-    - name: Install qemu dependency
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
-
-    - name: Download Artifact
-      uses: actions/download-artifact@v3
+    - uses: withlazers/container-action@main
       with:
-        name: ${{ steps.map_arch.outputs.result }}
-        path: artifacts
-
-    - name: Extract Artifact
-      run: |
-        for d in artifacts/*/; do
-          tar -C "$d" -xf "$d/"*.tar.gz;
-        done
-        ln -sr artifacts/{i686,x86}-unknown-linux-musl
-        ln -sr artifacts/armv7-unknown-linux-musl{eabihf,}
-    - name: List artifacts
-      run: |
-        find artifacts
-
-    - name: Build Docker Image
-      id: build-image
-      uses: redhat-actions/buildah-build@v2
-      with:
-        archs: "386, amd64, arm64, arm"
-        image: neatkube
-        tags: ${{ github.ref_name }} sha-${{ github.sha }} latest
-        containerfiles: ./Dockerfile.gh
-
-    - name: Push to Dockerhub
-      if: startsWith(github.ref, 'refs/tags/v')
-      id: push-to-quay
-      uses: redhat-actions/push-to-registry@v2
-      with:
-        image: ${{ steps.build-image.outputs.image }}
-        tags: ${{ steps.build-image.outputs.tags }}
-        registry: docker.io/withlazers
-        username: withlazers
+        repository: neatkube
         password: ${{ secrets.DOCKER_TOKEN }}
 
   release:
