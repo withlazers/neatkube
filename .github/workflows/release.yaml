@@ -1,6 +1,8 @@
 name: Release
 on:
   push:
+    branches:
+    - "**"
     tags:
     - 'v[0-9]*.[0-9]*.[0-9]*'
 
@@ -97,6 +99,7 @@ jobs:
         containerfiles: ./Dockerfile.gh
 
     - name: Push to Dockerhub
+      if: startsWith(github.ref, 'refs/tags/v')
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
@@ -119,6 +122,7 @@ jobs:
         path: artifacts
 
     - uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/v')
       with:
         fail_on_unmatched_files: true
         generate_release_notes: true

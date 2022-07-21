@@ -7,39 +7,14 @@ inputs:
   use-cross:
     description: "use cross"
     required: true
-    default: "false"
 
 runs:
   using: composite
   steps:
-  - name: Install Toolchain
-    uses: actions-rs/toolchain@v1
+  - uses: withlazers/rust-build-action@main
     with:
-        toolchain: stable
-        profile: minimal
-        target: ${{ inputs.target }}
-
-  - name: Setup Cache
-    uses: Swatinem/rust-cache@v2
-    with:
-      key: ${{ inputs.target }}
-
-  - name: Build
-    uses: actions-rs/cargo@v1
-    with:
-      command: build
+      target: ${{ inputs.target }}
       use-cross: ${{ inputs.use-cross }}
-      args: >
-        --release
-        --target ${{ inputs.target }}
-  - name: Package
-    shell: bash
-    run: |
-      mkdir bin
-      cp target/${{ inputs.target }}/release/nk bin
-      tar czf neatkube-${{ github.ref_name }}-${{ inputs.target }}.tar.gz README.md bin
-  - name: Upload Artifact
-    uses: actions/upload-artifact@v3
-    with:
-      name: ${{ inputs.target }}
-      path: neatkube-${{ github.ref_name }}-${{ inputs.target }}.tar.gz
+      binaries: nk
+      archive-prefix: neatkube-${{ github.ref_name }}
+      extra-files: README.md
