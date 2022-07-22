@@ -37,7 +37,7 @@ tools:
       windows: Windows
     github_release:
       repo: derailed/k9s
-      file: k9s_Linux_x86_64.tar.gz
+      file: k9s_{os}_{arch}.tar.gz
   extract_command: tar -Oxz k9s
 - name: kubectl
   aliases:
