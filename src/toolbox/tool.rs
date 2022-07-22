@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     ffi::{CString, OsStr, OsString},
     iter,
@@ -22,7 +23,10 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 
-use super::{upstream::UpstreamDefinition, Toolbox};
+use super::{
+    upstream::{Upstream, UpstreamDefinition},
+    Toolbox,
+};
 use dewey::VersionCmp;
 
 static ARGS_NAME: &str = "args";
@@ -63,30 +67,82 @@ impl From<&str> for VersionRef {
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub struct ToolDefinition {
-    pub name: String,
-    pub upstream: UpstreamDefinition,
+    name: String,
+    description: String,
+    upstream: UpstreamDefinition,
     #[serde(default)]
     extract_command: String,
-    pub description: String,
     #[serde(default)]
-    pub dependencies: Vec<String>,
+    dependencies: Vec<String>,
     #[serde(default)]
-    pub aliases: Vec<String>,
+    aliases: Vec<String>,
+    #[serde(default)]
+    os_map: HashMap<String, String>,
+    #[serde(default)]
+    arch_map: HashMap<String, String>,
 }
 
 impl ToolDefinition {
-    fn replace(input: &str, version: &str) -> String {
-        input.replace("{version}", version).replace(
-            "{stripped_version}",
-            version.strip_prefix('v').unwrap_or(version),
-        )
+    pub fn name(&self) -> &str {
+        &self.name
     }
-    pub fn extract_command(&self, version: &str) -> Vec<String> {
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+    fn replace(&self, input: &str, version: &str) -> Result<String> {
+        Ok(minitmpl::minitmpl_fn(input, |x| match x {
+            "name" => Some(self.name.as_str()),
+            "version" => Some(version),
+            "os" => Some(self.os()),
+            "arch" => Some(self.arch()),
+            "stripped_version" => version.strip_prefix('v').or(Some(version)),
+            _ => None,
+        })?)
+    }
+
+    pub fn os(&self) -> &str {
+        let default = match std::env::consts::OS {
+            "macos" => "darwin",
+            x => x,
+        };
+
+        self.os_map
+            .get(default)
+            .map(String::as_str)
+            .unwrap_or(default)
+    }
+
+    pub fn arch(&self) -> &str {
+        let default = match std::env::consts::ARCH {
+            "x86_64" => "amd64",
+            "x86" => "386",
+            "aarch64" => "arm64",
+            x => x,
+        };
+
+        self.arch_map
+            .get(default)
+            .map(String::as_str)
+            .unwrap_or(default)
+    }
+
+    fn upstream<'a>(&'a self) -> Box<dyn Upstream + 'a> {
+        match &self.upstream {
+            UpstreamDefinition::GithubRelease(upstream) => Box::new(upstream),
+            UpstreamDefinition::Simple(upstream) => Box::new(upstream),
+        }
+    }
+
+    pub fn extract_command(&self, version: &str) -> Result<Vec<String>> {
         self.extract_command
             .split(' ')
             .filter(|x| !x.is_empty())
-            .map(|x| Self::replace(x, version))
+            .map(|x| self.replace(x, version))
             .collect()
+    }
+
+    pub fn package_url(&self, version: &str) -> Result<String> {
+        self.replace(&self.upstream().package_url(), version)
     }
 }
 
@@ -257,15 +313,16 @@ impl<'a> Tool<'a> {
     fn downloader(&self) -> &Downloader {
         self.toolbox.downloader()
     }
+
     pub async fn find_latest_version(&self) -> Result<String> {
-        let url = self.definition.upstream.version_url();
+        let url = self.definition.upstream().version_url();
         let response = self
             .downloader()
             .string(&url, &format!("{} check latest", self.name()))
             .await?;
         let latest_version = self
             .definition
-            .upstream
+            .upstream()
             .parse_version_from_response(&response)?;
         Ok(latest_version)
     }
@@ -313,6 +370,7 @@ impl<'a> Tool<'a> {
         //);
         //deps.into_iter().find(Result::is_err).unwrap_or(main)
     }
+
     async fn real_install(&self, force: bool) -> Result<bool> {
         if self.is_installed().await? && !force {
             return Ok(false);
@@ -320,7 +378,7 @@ impl<'a> Tool<'a> {
         let version = self.resolve_version().await?;
         let bin_path = self.exec_path().await?;
         let temp_bin_path = bin_path.with_extension("part");
-        let url = self.definition.upstream.package_url(&version);
+        let url = self.definition.package_url(&version)?;
 
         let mut stream = self
             .downloader()
@@ -330,7 +388,7 @@ impl<'a> Tool<'a> {
         fs::create_dir_all(&self.exec_dir_path().await?).await?;
         let mut file = File::create(&temp_bin_path).await?;
 
-        let extract_command = self.definition.extract_command(&version);
+        let extract_command = self.definition.extract_command(&version)?;
         if extract_command.is_empty() {
             while let Some(chunk) = stream.next().await {
                 file.write_all(&chunk?).await?;

@@ -27,13 +27,13 @@ impl List {
     async fn list(&self, toolbox: &Toolbox) -> Result<()> {
         let repository = toolbox.repository();
         let tools = repository.tools();
-        let length = tools.iter().map(|x| x.name.len()).max().unwrap_or(0);
+        let length = tools.iter().map(|x| x.name().len()).max().unwrap_or(0);
 
         for tool in repository.tools() {
             if self.description {
-                println!("{:length$} {}", tool.name, tool.description);
+                println!("{:length$} {}", tool.name(), tool.description());
             } else {
-                println!("{}", tool.name);
+                println!("{}", tool.name());
             }
         }
         Ok(())

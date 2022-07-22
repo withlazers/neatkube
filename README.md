@@ -47,7 +47,7 @@ nk helm install ...
 #### Example `k9s`
 
 ```
-nk 9 -n kube-system
+nk k9s -n kube-system
 ```
 
 ### 🐚 Shell-in-a-pod

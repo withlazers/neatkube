@@ -68,7 +68,7 @@ impl Toolbox {
         self.repository
             .tools()
             .iter()
-            .find(|t| t.name == name)
+            .find(|t| t.name() == name)
             .map(|t| Tool::new_with_version(t, self, version_refs))
             .ok_or_else(|| format!("Tool not found: {name}").into())
     }

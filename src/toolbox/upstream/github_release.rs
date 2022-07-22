@@ -18,7 +18,7 @@ pub enum PackageSource {
     PackageUrl(String),
 }
 
-impl Upstream for GithubReleaseUpstream {
+impl Upstream for &GithubReleaseUpstream {
     fn version_url(&self) -> String {
         format!("https://api.github.com/repos/{}/releases/latest", self.repo)
     }
@@ -28,7 +28,7 @@ impl Upstream for GithubReleaseUpstream {
             PackageSource::File(file) => {
                 format!(
                     "https://github.com/{}/releases/download/{}/{}",
-                    self.repo, "{version}", file
+                    self.repo, "{{version}}", file
                 )
             }
             PackageSource::PackageUrl(url) => url.to_string(),

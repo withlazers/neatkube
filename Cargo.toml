@@ -35,3 +35,5 @@ serde = { version = "1.0.140", features = ["derive"] }
 serde_yaml = "0.8.26"
 tokio = { version = "1.20.0", features = ["rt-multi-thread", "process", "macros"] }
 tokio-stream = "0.1.9"
+minitmpl = { git = "https://github.com/Gottox/minitmpl.git", branch = "main" }
+env_logger = "0.9.0"

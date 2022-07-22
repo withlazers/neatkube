@@ -10,7 +10,7 @@ pub struct SimpleUpstream {
     package_url: String,
 }
 
-impl Upstream for SimpleUpstream {
+impl Upstream for &SimpleUpstream {
     fn version_url(&self) -> String {
         self.version_url.clone()
     }
