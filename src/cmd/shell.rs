@@ -171,6 +171,7 @@ impl ShellCommand {
         };
         let container_name =
             &pod.spec.as_ref().unwrap().containers.first().unwrap().name;
+        let pod_name = pod.metadata.name.as_ref().unwrap().clone();
 
         let pods: Api<Pod> = Api::namespaced(client, &namespace);
         pods.create(&PostParams::default(), &pod).await?;
@@ -185,7 +186,7 @@ impl ShellCommand {
 
         for (local, remote) in self.upload.iter() {
             PodUpload::new(toolbox)
-                .name(&pod.name())
+                .name(&pod_name)
                 .namespace(&namespace)
                 .container_name(container_name)
                 .upload(local, remote)
@@ -194,7 +195,7 @@ impl ShellCommand {
 
         PodExec::new(toolbox)
             .terminal(true)
-            .name(&pod.name())
+            .name(&pod_name)
             .namespace(&namespace)
             .container_name(container_name)
             .command(self.args.clone())
@@ -214,7 +215,7 @@ impl ShellCommand {
         pods.delete(name, &DeleteParams::default())
             .await?
             .map_left(|pdel| {
-                assert_eq!(pdel.name(), name);
+                assert_eq!(pdel.name_any(), name);
             });
         Ok(())
     }
@@ -226,12 +227,12 @@ impl ShellCommand {
         while let Some(status) = stream.try_next().await? {
             match status {
                 WatchEvent::Added(o) => {
-                    info!("Added {}", o.name());
+                    info!("Added {}", o.name_any());
                 }
                 WatchEvent::Modified(o) => {
                     let s = o.status.as_ref().expect("status exists on pod");
                     if s.phase.clone().unwrap_or_default() == "Running" {
-                        info!("Ready to attach to {}", o.name());
+                        info!("Ready to attach to {}", o.name_any());
                         break;
                     }
                 }
