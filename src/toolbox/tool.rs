@@ -77,6 +77,8 @@ pub struct ToolDefinition {
     #[serde(default)]
     aliases: Vec<String>,
     #[serde(default)]
+    os_arch_map: HashMap<String, String>,
+    #[serde(default)]
     os_map: HashMap<String, String>,
     #[serde(default)]
     arch_map: HashMap<String, String>,
@@ -90,16 +92,22 @@ impl ToolDefinition {
         &self.description
     }
     fn replace(&self, input: &str, version: &str) -> Result<String> {
+        let os_arch = self.os_arch();
         Ok(minitmpl::minitmpl_fn(input, |x| match x {
             "name" => Some(self.name.as_str()),
             "version" => Some(version),
             "os" => Some(self.os()),
+            "os_arch" => Some(&os_arch),
             "arch" => Some(self.arch()),
             "stripped_version" => version.strip_prefix('v').or(Some(version)),
             _ => None,
         })?)
     }
 
+    pub fn os_arch(&self) -> String {
+        let default = format!("{}-{}", self.os(), self.arch());
+        self.os_arch_map.get(&default).cloned().unwrap_or(default)
+    }
     pub fn os(&self) -> &str {
         let default = match std::env::consts::OS {
             "macos" => "darwin",
