@@ -1,6 +1,7 @@
 Neatkube
 ========
 
+[![Night Rider](https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Knight_Rider_Replica_1X7A8004.jpg/640px-Knight_Rider_Replica_1X7A8004.jpg)](https://de.m.wikipedia.org/wiki/Datei:Knight_Rider_Replica_1X7A8004.jpg)
 ```
  /.     __     .\
 | |_.-`/  \`-._| |
