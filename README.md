@@ -16,16 +16,52 @@ Kubernetes is a mess. Everthing ships it's own command line tools that you need
 to install and track for updates. Everybody has their own set of scripts to
 start a debug pod and a set of random tools to easy their lives.
 
-Neatkube is an attempt to pack all these tools and helpers and give you unified
-access to it.
+*Neatkube* has two main objectives:
 
-Neatkube downloads tools on demand and is able to keep them up to date.
+1. Give unified access to all most frequently used kubernetes tools and keep
+   them up to date
+2. Streamline common usage and debug patterns and mold them into a command
+   line tools
+
+In the end the goal is: If the *Neatkube* binary is installed on your system and
+have access to a kubernetes cluster you can do something useful.
 
 ## Features
 
+*Neatkube* features lots of different subcommands.
+
+### 🐚 Shell-in-a-pod
+
+It's a common task to start a debug pod on kubernetes. *Neatkube* eases the
+start and the configuration of such a debug pod.
+
+#### Example simple shell
+
+```
+nk shell -n default
+```
+
+#### Access a certain Node in a cluster
+
+```
+nk shell -pNIP --node "MYNODE" chroot /bin/sh
+```
+
+### 🧳 pack the configuration
+
+*Neatkube* provides a small tool that reads a kubeconfig file and includes all
+external resources. This is useful for `minikube` for example, that by default
+puts its certificates on a different place on the file system.
+
+#### Example cfgpack
+
+```
+nk cfgpack /path/to/kubeconfig
+```
+
 ### 🧰 Toolbox
 
-Neatkube includes many regulary used kubernetes tools, that will be downloaded
+*Neatkube* includes many regulary used kubernetes tools, that will be downloaded
 on demand:
 
 * [🎮 kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
@@ -51,25 +87,3 @@ nk helm install ...
 nk k9s -n kube-system
 ```
 
-### 🐚 Shell-in-a-pod
-
-It's a common task to start a debug pod on kubernetes. *Neatkube* eases the
-start and the configuration of such a debug pod.
-
-#### Example simple shell
-
-```
-nk shell -n default
-```
-
-### 🧳 pack the configuration
-
-*Neatkube* provides a small tool that reads a kubeconfig file and includes all
-external resources. This is useful for `minikube` for example, that by default
-puts its certificates on a different place on the file system.
-
-#### Example cfgpack
-
-```
-nk cfgpack /path/to/kubeconfig
-```
