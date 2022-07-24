@@ -2,7 +2,9 @@ use std::convert::Infallible;
 
 use crate::{
     error::TError,
-    podutil::{builder::PodBuilder, exec::PodExec, upload::PodUpload},
+    podutil::{
+        builder::PodBuilder, exec::PodExec, file_transfer::PodFileTransfer,
+    },
     result::Result,
     toolbox::Toolbox,
 };
@@ -185,7 +187,7 @@ impl ShellCommand {
         }
 
         for (local, remote) in self.upload.iter() {
-            PodUpload::new(toolbox)
+            PodFileTransfer::new(toolbox)
                 .name(&pod_name)
                 .namespace(&namespace)
                 .container_name(container_name)
