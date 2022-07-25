@@ -44,7 +44,7 @@ nk shell -n default
 #### Access a certain Node in a cluster
 
 ```
-nk shell -pNIP --node "MYNODE" chroot /bin/sh
+nk shell -pNIP --node "MYNODE" chroot /host /bin/sh
 ```
 
 ### 🧳 pack the configuration
