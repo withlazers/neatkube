@@ -68,7 +68,6 @@ impl CfgPackCommand {
             )?;
         }
 
-        println!("{:?}", config);
         serde_yaml::to_writer(std::io::stdout(), &config)?;
         Ok(())
     }
