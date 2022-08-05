@@ -16,6 +16,7 @@ use clap::FromArgMatches;
 use clap::IntoApp;
 use cmd::cfg_pack::CfgPackCommand;
 use cmd::completion::CompletionCommand;
+use cmd::copy::CopyCommand;
 use cmd::shell::ShellCommand;
 use cmd::tool::ToolCommand;
 use cmd::toolbox::ToolboxCommand;
@@ -40,6 +41,7 @@ pub async fn run() -> Result<(), error::Error> {
     let command = Command::new(env!("CARGO_PKG_NAME"))
         .bin_name("nk")
         .allow_external_subcommands(true)
+        .subcommand(CopyCommand::command())
         .subcommand(CfgPackCommand::command())
         .subcommand(ToolboxCommand::command())
         .subcommand(CompletionCommand::command())
@@ -50,6 +52,11 @@ pub async fn run() -> Result<(), error::Error> {
 
     let matches = command.clone().get_matches();
     match matches.subcommand() {
+        Some(("copy", subcommand)) => {
+            CopyCommand::from_arg_matches(subcommand)?
+                .run(&toolbox)
+                .await?
+        }
         Some(("shell", subcommand)) => {
             ShellCommand::from_arg_matches(subcommand)?
                 .run(&toolbox)

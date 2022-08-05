@@ -54,23 +54,17 @@ impl<'a> PodExec<'a> {
         I: IntoIterator<Item = S>,
     {
         let kubectl = self.toolbox.tool("kubectl")?;
-        let container_name = &self.container_name.as_ref().unwrap();
-        let namespace = &self.namespace.as_ref().unwrap();
         let name = &self.name.as_ref().unwrap();
         let prog_args = args.into_iter().map(|s| s.as_ref().to_os_string());
-        let args = [
-            "exec",
-            self.opt,
-            "-c",
-            container_name,
-            "--namespace",
-            namespace,
-            name,
-            "--",
-        ]
-        .into_iter()
-        .map(OsString::from)
-        .chain(prog_args);
+        let mut args = vec!["exec", self.opt];
+        if let Some(container_name) = &self.container_name {
+            args.append(&mut vec!["-c", container_name]);
+        }
+        if let Some(namespace) = &self.namespace {
+            args.append(&mut vec!["--namespace", namespace]);
+        }
+        args.append(&mut vec![name, "--"]);
+        let args = args.into_iter().map(OsString::from).chain(prog_args);
 
         kubectl.command(args).await
     }

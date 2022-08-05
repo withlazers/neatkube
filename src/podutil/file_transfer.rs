@@ -112,13 +112,14 @@ impl<'a> PodFileTransfer<'a> {
 
     pub async fn download(self, remote: &str, local: &str) -> Result<()> {
         let (info, args) = self.send_args(remote);
-        let mut receive_cmd = Command::new(&args[0]);
-        receive_cmd.args(&args[1..]);
-
         let send_cmd = self
             .pod_exec
-            .command(&self.receive_args(local, info))
+            .command(args)
             .await?;
+
+        let args = self.receive_args(local, info);
+        let mut receive_cmd = Command::new(&args[0]);
+        receive_cmd.args(&args[1..]);
 
         let (kubectl_exit, tar_exit) =
             self.transfer(send_cmd, receive_cmd).await?;
