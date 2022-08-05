@@ -112,10 +112,7 @@ impl<'a> PodFileTransfer<'a> {
 
     pub async fn download(self, remote: &str, local: &str) -> Result<()> {
         let (info, args) = self.send_args(remote);
-        let send_cmd = self
-            .pod_exec
-            .command(args)
-            .await?;
+        let send_cmd = self.pod_exec.command(args).await?;
 
         let args = self.receive_args(local, info);
         let mut receive_cmd = Command::new(&args[0]);
