@@ -102,3 +102,10 @@ tools:
       repo: stern/stern
       file: stern_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
   extract_command: tar -Oxz stern
+- name: dyff
+  description: diff tool for YAML files, and sometimes JSON
+  upstream:
+    github_release:
+      repo: homeport/dyff
+      file: dyff_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
+  extract_command: tar -Oxz dyff
