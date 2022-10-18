@@ -36,7 +36,7 @@ impl<'a> ToolCommand<'a> {
                     toolbox,
                 })
             }
-            Some(sc) => (sc),
+            Some(sc) => sc,
         };
 
         if toolbox.tool(subcommand_name).is_ok() {
