@@ -21,7 +21,8 @@ tools:
   upstream:
     github_release:
       repo: helmfile/helmfile
-      file: helmfile_{{os}}_{{arch}}
+      file: helmfile_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
+  extract_command: tar -Oxz helmfile
 - name: k9s
   aliases:
   - "9"
