@@ -1,9 +1,7 @@
 use clap::Parser;
 
 use crate::{
-    error::{Error, TError},
-    podutil::file_transfer::PodFileTransfer,
-    result::Result,
+    error::Error, podutil::file_transfer::PodFileTransfer, result::Result,
     toolbox::Toolbox,
 };
 use std::{convert::Infallible, result::Result as StdResult, str::FromStr};
