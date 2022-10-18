@@ -20,7 +20,7 @@ tools:
   - hf
   upstream:
     github_release:
-      repo: roboll/helmfile
+      repo: helmfile/helmfile
       file: helmfile_{{os}}_{{arch}}
 - name: k9s
   aliases:
