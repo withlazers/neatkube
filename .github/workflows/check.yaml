@@ -2,18 +2,38 @@ name: Check
 on: "push"
 
 jobs:
-  check:
+  check-lin:
     runs-on: 'ubuntu-latest'
     steps:
     - uses: actions/checkout@v3
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
     - uses: actions-rs/cargo@v1
       with:
-        command: check
+        command: test
         args: >
           --verbose
+
+  check-mac:
+    runs-on: 'macos-latest'
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: >
+          --verbose
+
   clippy:
     runs-on: 'ubuntu-latest'
     steps:
@@ -21,6 +41,9 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: "true"
     - uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
