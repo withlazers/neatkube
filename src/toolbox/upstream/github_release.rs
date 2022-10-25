@@ -40,7 +40,7 @@ impl Upstream for &GithubReleaseUpstream {
             .map_err(|_| response.trim().to_string())?;
         let tag_name = json["tag_name"]
             .as_str()
-            .ok_or_else(|| "Malformed response".to_string())?;
+            .ok_or_else(|| format!("Malformed response: {}", response))?;
         Ok(tag_name.to_string())
     }
 }
