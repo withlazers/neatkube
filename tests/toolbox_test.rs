@@ -11,6 +11,10 @@ async fn test_toolbox() -> Result<(), Error> {
     let toolbox = Toolbox::create().await?;
 
     for tool in toolbox.repository().tools() {
+        if tool.name() == "docker-machine-driver-kvm2" {
+            println!("Ignoring Tool: {}", tool.name());
+            continue;
+        }
         let tool = Tool::new(tool, &toolbox);
         let mut command = tool.command(["--help"]).await?;
         let exit_status = command.spawn()?.wait().await?.code().unwrap();
