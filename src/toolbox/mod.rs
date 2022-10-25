@@ -60,11 +60,14 @@ impl Toolbox {
         Ok(tools)
     }
 
-    pub fn tool_with_version<'a>(
+    pub fn tool_with_version<'a, I>(
         &'a self,
         name: &str,
-        version_refs: Vec<VersionRef>,
-    ) -> Result<Tool<'a>> {
+        version_refs: I,
+    ) -> Result<Tool<'a>>
+    where
+        I: IntoIterator<Item = VersionRef>,
+    {
         self.repository
             .tools()
             .iter()
@@ -74,10 +77,7 @@ impl Toolbox {
     }
 
     pub fn tool<'a>(&'a self, name: &str) -> Result<Tool<'a>> {
-        self.tool_with_version(
-            name,
-            vec![VersionRef::Local, VersionRef::Latest],
-        )
+        self.tool_with_version(name, [VersionRef::Local, VersionRef::Latest])
     }
 
     pub async fn mount_toolbox<'a>(

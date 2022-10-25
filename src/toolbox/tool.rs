@@ -168,15 +168,15 @@ impl<'a> Tool<'a> {
             version: Mutex::new(vec![VersionRef::Local, VersionRef::Latest]),
         }
     }
-    pub fn new_with_version(
+    pub fn new_with_version<I: IntoIterator<Item = VersionRef>>(
         definition: &'a ToolDefinition,
         toolbox: &'a Toolbox,
-        version_refs: Vec<VersionRef>,
+        version_refs: I,
     ) -> Self {
         Self {
             definition,
             toolbox,
-            version: Mutex::new(version_refs),
+            version: Mutex::new(version_refs.into_iter().collect()),
         }
     }
 

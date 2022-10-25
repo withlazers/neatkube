@@ -29,7 +29,7 @@ impl List {
         let tools = repository.tools();
         let length = tools.iter().map(|x| x.name().len()).max().unwrap_or(0);
 
-        for tool in repository.tools() {
+        for tool in tools {
             if self.description {
                 println!("{:length$} {}", tool.name(), tool.description());
             } else {
