@@ -1,3 +1,4 @@
+---
 default:
   with_subcommand: kubectl
   no_subcommand: k9s
