@@ -111,3 +111,16 @@ tools:
       repo: homeport/dyff
       file: dyff_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
   extract_command: tar -Oxz dyff
+- name: popeye
+  description: Kubernetes cluster resource sanitizer 
+  os_map:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+  arch_map:
+    amd64: x86_64
+  upstream:
+    github_release:
+      repo: derailed/popeye
+      file: popeye_{{os}}_{{arch}}.tar.gz
+  extract_command: tar -Oxz popeye
