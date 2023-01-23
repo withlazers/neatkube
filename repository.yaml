@@ -54,7 +54,7 @@ tools:
   upstream:
     github_release:
       repo: mikefarah/yq
-      file: yq_linux_amd64
+      file: yq_{{os}}_{{arch}}
 - name: kubeseal
   aliases:
   - "sl"
@@ -77,10 +77,12 @@ tools:
   extract_command: tar -Oxz istio-{{stripped_version}}/bin/istioctl
 - name: linkerd
   description: Ultralight, security-first service mesh for Kubernetes.
+  os_arch_map:
+    darwin-amd64: darwin
   upstream:
     github_release:
       repo: linkerd/linkerd2
-      file: linkerd2-cli-{{version}}-{{os}}-{{arch}}
+      file: linkerd2-cli-{{version}}-{{os_arch}}
 - name: minikube
   description: Run Kubernetes locally
   aliases:
