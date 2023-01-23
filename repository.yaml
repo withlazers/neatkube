@@ -124,3 +124,10 @@ tools:
       repo: derailed/popeye
       file: popeye_{{os}}_{{arch}}.tar.gz
   extract_command: tar -Oxz popeye
+- name: flux
+  description: Open and extensible continuous delivery solution for Kubernetes.
+  upstream:
+    github_release:
+      repo: fluxcd/flux2
+      file: flux_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
+  extract_command: tar -Oxz flux
