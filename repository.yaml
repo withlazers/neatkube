@@ -34,8 +34,6 @@ tools:
     github_release:
       repo: derailed/k9s
       file: k9s_{{os}}_{{arch}}.tar.gz
-  arch_map:
-    amd64: x86_64
   os_map:
     darwin: Darwin
     linux: Linux
