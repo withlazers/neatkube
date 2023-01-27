@@ -131,3 +131,9 @@ tools:
       repo: fluxcd/flux2
       file: flux_{{stripped_version}}_{{os}}_{{arch}}.tar.gz
   extract_command: tar -Oxz flux
+- name: argocd
+  description: Declarative continuous deployment for Kubernetes.
+  upstream:
+    github_release:
+      repo: argoproj/argo-cd
+      file: argocd-{{os}}-{{arch}}
