@@ -1,7 +1,7 @@
 Neatkube
 ========
 
-[![Night Rider](https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Knight_Rider_Replica_1X7A8004.jpg/640px-Knight_Rider_Replica_1X7A8004.jpg)](https://de.m.wikipedia.org/wiki/Datei:Knight_Rider_Replica_1X7A8004.jpg)
+[![800px-Knight_Rider_Replica_1X7A8004](https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Knight_Rider_Replica_1X7A8004.jpg/800px-Knight_Rider_Replica_1X7A8004.jpg)](https://de.m.wikipedia.org/wiki/Datei:Knight_Rider_Replica_1X7A8004.jpg)
 ```
  /.     __     .\
 | |_.-`/  \`-._| |
@@ -73,7 +73,11 @@ on demand:
 [📜 istio](https://istio.io/) |
 [🔗 linkerd](https://linkerd.io/) |
 [🧒 minikube](https://minikube.sigs.k8s.io/) |
-[🌠 stern](https://github.com/stern/stern)
+[🌠 stern](https://github.com/stern/stern) |
+[💪 popeye](https://github.com/derailed/popeye) |
+[🏞️ flux](https://fluxcd.io/) |
+[💈 argocd](https://argo-cd.readthedocs.io/)
+
 
 #### Example `helm`
 
