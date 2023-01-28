@@ -1,5 +1,6 @@
 use std::io::Read;
 
+use base64::Engine;
 use clap::Parser;
 use kube_client::config::Kubeconfig;
 use secrecy::Secret;
@@ -35,9 +36,10 @@ impl CfgPackCommand {
         if let Some(path_to_inline) = path {
             let mut file = std::fs::File::open(path_to_inline)?;
             let mut contents = vec![];
+            let engine = &base64::engine::general_purpose::STANDARD;
             file.read_to_end(&mut contents)?;
             *path = None;
-            *data = Some(base64::encode(contents));
+            *data = Some(engine.encode(contents));
         }
         Ok(())
     }
@@ -50,14 +52,18 @@ impl CfgPackCommand {
         };
 
         for cluster in config.clusters.iter_mut() {
-            let cluster = &mut cluster.cluster;
+            let Some(cluster) = &mut cluster.cluster else {
+                continue;
+            };
             Self::inline(
                 &mut cluster.certificate_authority,
                 &mut cluster.certificate_authority_data,
             )?;
         }
         for auth_info in config.auth_infos.iter_mut() {
-            let auth_info = &mut auth_info.auth_info;
+            let Some(auth_info) = &mut auth_info.auth_info else {
+                continue;
+            };
             Self::inline_secret(
                 &mut auth_info.client_key,
                 &mut auth_info.client_key_data,

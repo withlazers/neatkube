@@ -15,12 +15,6 @@ pub struct Downloader {
     progress: MultiProgress,
 }
 
-impl Drop for Downloader {
-    fn drop(&mut self) {
-        self.progress.join_and_clear().unwrap();
-    }
-}
-
 impl Default for Downloader {
     fn default() -> Self {
         // Reqwest setup
@@ -90,11 +84,14 @@ impl Downloader {
 
         // Indicatif setup
         let pb = ProgressBar::new(total_size);
-        pb.set_style(ProgressStyle::default_bar()
-        .template(r#"{msg} {spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"#));
+        let ps =ProgressStyle::default_bar()
+        .template(
+            r#"{msg} {spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"#
+            )?;
+        pb.set_style(ps);
         pb.set_message(msg.to_string());
 
-        //let pb = self.progress.add(pb);
+        let pb = self.progress.add(pb);
 
         // download chunks
         let stream = res.bytes_stream().map(move |chunk| {
