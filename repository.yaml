@@ -137,3 +137,9 @@ tools:
     github_release:
       repo: argoproj/argo-cd
       file: argocd-{{os}}-{{arch}}
+- name: talosctl
+  description: Declarative continuous deployment for Kubernetes.
+  upstream:
+    github_release:
+      repo: siderolabs/talos
+      file: talosctl-{{os}}-{{arch}}
