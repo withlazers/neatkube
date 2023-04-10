@@ -77,6 +77,7 @@ on demand:
 [💪 popeye](https://github.com/derailed/popeye) |
 [🏞️ flux](https://fluxcd.io/) |
 [💈 argocd](https://argo-cd.readthedocs.io/)
+[🗿 talos](https://talos.dev/)
 
 
 #### Example `helm`
