@@ -76,7 +76,7 @@ on demand:
 [🌠 stern](https://github.com/stern/stern) |
 [💪 popeye](https://github.com/derailed/popeye) |
 [🏞️ flux](https://fluxcd.io/) |
-[💈 argocd](https://argo-cd.readthedocs.io/)
+[💈 argocd](https://argo-cd.readthedocs.io/) |
 [🗿 talos](https://talos.dev/)
 
 
