@@ -141,6 +141,7 @@ impl ShellCommand {
             .image(&self.image)
             .host_ipc(self.host_ipc)
             .host_network(self.host_network)
+            .privileged(self.privileged)
             .host_pid(self.host_pid)
             .labels(self.label.clone())
             .annotations(self.annotation.clone());
