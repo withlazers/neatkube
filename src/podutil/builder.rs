@@ -1,7 +1,7 @@
 use k8s_openapi::api::core::v1::{
     ConfigMapVolumeSource, Container, HostPathVolumeSource,
     PersistentVolumeClaimVolumeSource, Pod, PodSpec, SecretVolumeSource,
-    Volume, VolumeMount,
+    SecurityContext, Volume, VolumeMount,
 };
 use kube_client::api::ObjectMeta;
 
@@ -59,6 +59,18 @@ impl PodBuilder {
 
     pub fn host_network(&mut self, host_network: bool) -> &mut Self {
         self.spec.host_network = host_network.then_some(true);
+        self
+    }
+
+    pub fn privileged(&mut self, privileged: bool) -> &mut Self {
+        self.container_mut().security_context = if privileged {
+            Some(SecurityContext {
+                privileged: Some(true),
+                ..Default::default()
+            })
+        } else {
+            None
+        };
         self
     }
 
@@ -169,6 +181,7 @@ impl PodBuilder {
         volume_mounts.push(VolumeMount {
             mount_path: mount_path.to_string(),
             name: new_name,
+            mount_propagation: Some("Bidirectional".to_string()),
             ..Default::default()
         });
         self
