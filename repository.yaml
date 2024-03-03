@@ -117,8 +117,6 @@ tools:
     darwin: Darwin
     linux: Linux
     windows: Windows
-  arch_map:
-    amd64: x86_64
   upstream:
     github_release:
       repo: derailed/popeye
