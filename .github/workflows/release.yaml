@@ -65,6 +65,7 @@ jobs:
     - uses: withlazers/container-action@main
       with:
         repository: neatkube
+        username: gottox
         password: ${{ secrets.DOCKER_TOKEN }}
 
   release:
