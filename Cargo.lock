@@ -1023,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "neatkube"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "backtrace",
  "base64 0.21.0",

@@ -141,3 +141,9 @@ tools:
     github_release:
       repo: siderolabs/talos
       file: talosctl-{{os}}-{{arch}}
+- name: vcluster
+  description: Create fully functional virtual Kubernetes clusters
+  upstream:
+    github_release:
+      repo: loft-sh/vcluster
+      file: vcluster-{{os}}-{{arch}}
