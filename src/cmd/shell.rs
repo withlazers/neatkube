@@ -163,6 +163,10 @@ impl ShellCommand {
             pod_builder.node_selector(node_selector);
         }
 
+        if let Some(service_account) = self.service_account.as_ref() {
+            pod_builder.service_account(service_account);
+        }
+
         pod_builder.annotations(self.annotation.clone());
         pod_builder.labels(self.label.clone());
 

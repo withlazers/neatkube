@@ -57,6 +57,11 @@ impl PodBuilder {
         self
     }
 
+    pub fn service_account(&mut self, service_account: &str) -> &mut Self {
+        self.spec.service_account_name = Some(service_account.to_string());
+        self
+    }
+
     pub fn host_network(&mut self, host_network: bool) -> &mut Self {
         self.spec.host_network = host_network.then_some(true);
         self
